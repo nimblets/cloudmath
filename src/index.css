@@ -1,0 +1,93 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* E-ink inspired light theme */
+    --background: 38 25% 97%;
+    --foreground: 25 18% 25%;
+
+    --card: 38 25% 98%;
+    --card-foreground: 25 18% 25%;
+
+    --popover: 38 25% 98%;
+    --popover-foreground: 25 18% 25%;
+
+    --primary: 25 18% 25%;
+    --primary-foreground: 38 25% 97%;
+
+    --secondary: 38 15% 92%;
+    --secondary-foreground: 25 18% 25%;
+
+    --muted: 38 15% 90%;
+    --muted-foreground: 25 10% 45%;
+
+    --accent: 25 88% 48%;
+    --accent-foreground: 38 25% 97%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 38 25% 97%;
+
+    --border: 38 15% 85%;
+    --input: 38 15% 85%;
+    --ring: 25 88% 48%;
+
+    --radius: 0.25rem;
+
+    --editor-bg: 38 25% 97%;
+    --editor-fg: 25 18% 25%;
+    --editor-line-number: 25 10% 65%;
+  }
+
+  .dark {
+    /* Gruvbox/coffee inspired dark theme */
+    --background: 25 18% 16%;
+    --foreground: 38 36% 88%;
+
+    --card: 25 18% 18%;
+    --card-foreground: 38 36% 88%;
+
+    --popover: 25 18% 18%;
+    --popover-foreground: 38 36% 88%;
+
+    --primary: 38 36% 88%;
+    --primary-foreground: 25 18% 16%;
+
+    --secondary: 25 18% 22%;
+    --secondary-foreground: 38 36% 88%;
+
+    --muted: 25 18% 22%;
+    --muted-foreground: 38 20% 60%;
+
+    --accent: 25 88% 48%;
+    --accent-foreground: 38 36% 88%;
+
+    --destructive: 0 60% 50%;
+    --destructive-foreground: 38 36% 88%;
+
+    --border: 25 18% 25%;
+    --input: 25 18% 25%;
+    --ring: 25 88% 48%;
+
+    --editor-bg: 25 18% 16%;
+    --editor-fg: 38 36% 88%;
+    --editor-line-number: 38 20% 50%;
+  }
+}
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
