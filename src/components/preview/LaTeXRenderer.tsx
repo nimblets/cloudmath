@@ -12,7 +12,7 @@ export const LaTeXRenderer = ({ content }: LaTeXRendererProps) => {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const renderTikZWithQuickLatex = async (tikzCode: string): Promise<string> => {
+    const renderTikZWithLocalLatex = async (tikzCode: string): Promise<string> => {
       try {
         const response = await fetch('http://localhost:3001/api/render-tikz', {
           method: 'POST',
@@ -24,15 +24,23 @@ export const LaTeXRenderer = ({ content }: LaTeXRendererProps) => {
 
         const data = await response.json();
         
-        if (data.success && data.imageUrl) {
-          return `<img src="${data.imageUrl}" alt="TikZ Graph" class="max-w-full h-auto mx-auto" />`;
+        if (data.success && data.svgContent) {
+          // Return the SVG content directly embedded
+          return `<div class="inline-block">${data.svgContent}</div>`;
         } else {
-          console.error('Rendering error:', data.error);
-          return `<div class="text-destructive text-sm">Graph rendering error</div>`;
+          console.error('Rendering error:', data.error, data.details);
+          return `<div class="text-destructive text-sm p-2 border border-destructive rounded">
+            <strong>LaTeX Error:</strong><br/>
+            ${data.details || data.error || 'Unknown error'}<br/>
+            <small class="text-xs">Make sure TeX Live, dvipdf, and pdf2svg are installed</small>
+          </div>`;
         }
       } catch (error) {
         console.error('Error rendering TikZ:', error);
-        return `<div class="text-destructive text-sm">Backend not running. Start with: cd backend && npm start</div>`;
+        return `<div class="text-destructive text-sm p-2 border border-destructive rounded">
+          <strong>Backend Error:</strong> Server not running<br/>
+          <small class="text-xs">Start with: cd backend && npm install && npm start</small>
+        </div>`;
       }
     };
 
@@ -145,7 +153,7 @@ export const LaTeXRenderer = ({ content }: LaTeXRendererProps) => {
     // Render TikZ pictures asynchronously
     const renderAllTikZ = async () => {
       for (const { placeholder, code } of tikzPictures) {
-        const rendered = await renderTikZWithQuickLatex(code);
+        const rendered = await renderTikZWithLocalLatex(code);
         html = html.replace(placeholder, `<div class="my-4 flex justify-center">${rendered}</div>`);
       }
       
