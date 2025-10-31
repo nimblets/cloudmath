@@ -1,6 +1,6 @@
 # LaTeX Renderer Backend
 
-Local backend server for rendering TikZ graphs via QuickLatex.
+Local backend server for rendering TikZ graphs via compilation on server.
 
 ## Setup
 
