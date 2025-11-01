@@ -10,9 +10,11 @@ import { toast } from "sonner";
 interface CalculatorPaneProps {
   onInsertResult: (result: string) => void;
   onClose: () => void;
+  direction?: "horizontal" | "vertical";
+  onToggleDirection?: () => void;
 }
 
-export const CalculatorPane = ({ onInsertResult, onClose }: CalculatorPaneProps) => {
+export const CalculatorPane = ({ onInsertResult, onClose, direction = "horizontal", onToggleDirection }: CalculatorPaneProps) => {
   const [expression, setExpression] = useState("");
   const [result, setResult] = useState("");
   const [history, setHistory] = useState<Array<{ expr: string; result: string }>>([]);
@@ -92,9 +94,22 @@ export const CalculatorPane = ({ onInsertResult, onClose }: CalculatorPaneProps)
     <Card className="h-full flex flex-col bg-card">
       <div className="flex items-center justify-between p-3 border-b border-border">
         <h3 className="text-sm font-semibold">Scientific Calculator</h3>
-        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClose}>
-          <X className="h-4 w-4" />
-        </Button>
+        <div className="flex gap-1">
+          {onToggleDirection && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={onToggleDirection}
+              title="Toggle Calculator Direction"
+            >
+              <span className="text-xs">{direction === "horizontal" ? "⇅" : "⇄"}</span>
+            </Button>
+          )}
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <ScrollArea className="flex-1 p-3">

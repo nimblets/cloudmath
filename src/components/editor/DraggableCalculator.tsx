@@ -55,27 +55,27 @@ export const DraggableCalculator = ({ onClose, onInsertResult }: DraggableCalcul
   return (
     <Card
       ref={cardRef}
-      className="fixed z-50 shadow-2xl"
+      className="fixed z-50 shadow-2xl w-80"
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,
-        width: isMinimized ? "200px" : "320px",
         cursor: isDragging ? "grabbing" : "default",
       }}
     >
       <div
-        className="flex items-center justify-between p-2 border-b bg-secondary cursor-grab active:cursor-grabbing"
+        className="flex items-center justify-between p-3 border-b bg-secondary cursor-grab active:cursor-grabbing"
         onMouseDown={handleMouseDown}
       >
-        <span className="text-xs font-semibold">Calculator</span>
+        <span className="text-sm font-semibold">Calculator</span>
         <div className="flex gap-1">
           <Button
             variant="ghost"
             size="icon"
             className="h-6 w-6"
-            onClick={() => setIsMinimized(!isMinimized)}
+            onClick={onClose}
+            title="Pop Back In"
           >
-            {isMinimized ? <Maximize2 className="h-3 w-3" /> : <Minimize2 className="h-3 w-3" />}
+            <Maximize2 className="h-4 w-4" />
           </Button>
           <Button
             variant="ghost"
@@ -83,15 +83,13 @@ export const DraggableCalculator = ({ onClose, onInsertResult }: DraggableCalcul
             className="h-6 w-6"
             onClick={onClose}
           >
-            <X className="h-3 w-3" />
+            <X className="h-4 w-4" />
           </Button>
         </div>
       </div>
-      {!isMinimized && (
-        <div className="h-[400px]">
-          <CalculatorPane onInsertResult={onInsertResult} onClose={onClose} />
-        </div>
-      )}
+      <div className="h-[400px]">
+        <CalculatorPane onInsertResult={onInsertResult} onClose={onClose} />
+      </div>
     </Card>
   );
 };
