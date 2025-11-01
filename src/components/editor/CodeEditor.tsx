@@ -93,7 +93,6 @@ export const CodeEditor = ({ value, onChange }: CodeEditorProps) => {
           fontSize: 14,
           fontFamily: '"JetBrains Mono", monospace',
           lineNumbers: "on",
-          rulers: [80],
           wordWrap: "on",
           scrollBeyondLastLine: true,
           automaticLayout: true,
