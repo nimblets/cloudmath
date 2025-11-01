@@ -22,15 +22,17 @@
 
 ## Key Features
 
-* LivePreview - Make changes, See changes
+* Preview - Make changes, See changes
   - Instantly see what your math document looks like in HTML as you create it.
 * Syntax highlighting
-* [KaTeX](https://khan.github.io/KaTeX/) Support, tikz & pgfplots
+* [KaTeX](https://khan.github.io/KaTeX/) Support, tikz & pgfplots graphs
 * Dark/Light mode
 * Toolbar for basic math notation
 * Supports multiple cursors
 * Save the math preview as PDF
-* App will keep alive in tray for quick usage
+* calculator with quick insert
+* tiling window system
+* keyboard centric
 * cloud based 
   - monaco ide
 
@@ -40,7 +42,7 @@ To clone and run this application, you'll need [Git](https://git-scm.com) and [N
 
 ```bash
 # Clone this repository
-$ git clone https://github.com/amitmerchant1990/electron-markdownify
+$ git clone https://github.com/nimblets/cloudmath
 
 # Go into the repository
 $ cd cloudmath
@@ -68,5 +70,5 @@ This software uses the following packages:
 MIT
 
 ---
-> GitHub [@amitmerchant1990](https://github.com/nimblets) &nbsp;&middot;&nbsp;
+> GitHub [@nimblets](https://github.com/nimblets) &nbsp;&middot;&nbsp;
 
