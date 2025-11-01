@@ -1,7 +1,7 @@
 // src/lib/registerSymbolHotkeys.ts
 import { loader } from "@monaco-editor/react";
 import type * as monacoType from "monaco-editor";
-import { allSymbols } from "@/components/CommandPalette";
+import { allSymbols } from "@/components/editor/CommandPalette";
 
 export async function registerSymbolHotkeys(editor: monacoType.editor.IStandaloneCodeEditor) {
   const monaco = await loader.init();
