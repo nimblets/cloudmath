@@ -1,73 +1,72 @@
-# Welcome to your Lovable project
 
-## Project info
+<h1 align="center">
+  <br>
+  <img src="https://raw.githubusercontent.com/nimblets/cloudmath/master/public/logo.png" alt="cloudmath" width="200"></a>
+  <br>
+  cloudmath
+  <br>
+</h1>
 
-**URL**: https://lovable.dev/projects/995a9783-8992-4102-91c3-e2f3d722bc93
+<h4 align="center">A minimal self hosted math editor app.</h4>
 
-## How can I edit this code?
+<p align="center">
+  <a href="#key-features">Key Features</a> •
+  <a href="#how-to-use">How To Use</a> •
+  <a href="#download">Download</a> •
+  <a href="#credits">Credits</a> •
+  <a href="#related">Related</a> •
+  <a href="#license">License</a>
+</p>
 
-There are several ways of editing your application.
+![screenshot](https://raw.githubusercontent.com/nimblets/cloudmath/master/public/example.gif)
 
-**Use Lovable**
+## Key Features
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/995a9783-8992-4102-91c3-e2f3d722bc93) and start prompting.
+* LivePreview - Make changes, See changes
+  - Instantly see what your math document looks like in HTML as you create it.
+* Syntax highlighting
+* [KaTeX](https://khan.github.io/KaTeX/) Support, tikz & pgfplots
+* Dark/Light mode
+* Toolbar for basic math notation
+* Supports multiple cursors
+* Save the math preview as PDF
+* App will keep alive in tray for quick usage
+* cloud based 
+  - monaco ide
 
-Changes made via Lovable will be committed automatically to this repo.
+## How To Use
 
-**Use your preferred IDE**
+To clone and run this application, you'll need [Git](https://git-scm.com) and [Node.js](https://nodejs.org/en/download/) (which comes with [npm](http://npmjs.com)) installed on your computer. From your command line:
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+```bash
+# Clone this repository
+$ git clone https://github.com/amitmerchant1990/electron-markdownify
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+# Go into the repository
+$ cd cloudmath
 
-Follow these steps:
+# Install dependencies
+$ npm install
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+# Run the local host app
+$ npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## Credits
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+This software uses the following packages:
 
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
+- [Node.js](https://nodejs.org/)
 - Vite
 - TypeScript
 - React
-- shadcn-ui
+- shadcn-ui 
 - Tailwind CSS
 
-## How can I deploy this project?
+## License
 
-Simply open [Lovable](https://lovable.dev/projects/995a9783-8992-4102-91c3-e2f3d722bc93) and click on Share -> Publish.
+MIT
 
-## Can I connect a custom domain to my Lovable project?
+---
+> GitHub [@amitmerchant1990](https://github.com/nimblets) &nbsp;&middot;&nbsp;
 
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
