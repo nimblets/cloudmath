@@ -58,8 +58,8 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(
 
       setCurrentLineLatex(lineContent);
 
-      const coords = editor.getScrolledVisiblePosition(pos);
-      if (coords) setCursorCoords({ top: coords.top - 5, left: coords.left });
+     const coords = editor.getScrolledVisiblePosition({ lineNumber: pos.lineNumber, column: 1 });
+     if (coords) setCursorCoords({ top: coords.top - 20, left: 5 });
 
       return true;
     };
@@ -76,8 +76,9 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(
       const lineContent = editor.getModel()?.getLineContent(field.start.lineNumber) || "";
       setCurrentLineLatex(lineContent);
 
-      const coords = editor.getScrolledVisiblePosition(editor.getPosition());
-      if (coords) setCursorCoords({ top: coords.top - 5, left: coords.left });
+      const coords = editor.getScrolledVisiblePosition({ lineNumber: pos.lineNumber, column: 1 });
+      if (coords) setCursorCoords({ top: coords.top - 20, left: 5 });
+
     };
 
     const cycleToNextField = () => {
