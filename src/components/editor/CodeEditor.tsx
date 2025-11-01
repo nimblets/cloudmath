@@ -55,7 +55,7 @@ export const CodeEditor = ({ value, onChange }: CodeEditorProps) => {
           { token: 'delimiter.square', foreground: '000000' },
         ],
         colors: {
-          'editor.background': '#ffffff',
+          'editor.background': '#ffffffff',
           'editor.foreground': '#000000',
         }
       });
@@ -99,10 +99,10 @@ export const CodeEditor = ({ value, onChange }: CodeEditorProps) => {
           automaticLayout: true,
           tabSize: 2,
           insertSpaces: true,
-          overviewRulerBorder: false,
+          overviewRulerBorder: true,
           hideCursorInOverviewRuler: true,
           overviewRulerLanes: 0,
-          renderOverviewRuler: false,
+          renderOverviewRuler: true,
           scrollbar: {
             vertical: 'visible',
             horizontal: 'visible',
