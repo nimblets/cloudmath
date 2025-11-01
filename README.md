@@ -12,7 +12,7 @@
 <p align="center">
   <a href="#key-features">Key Features</a> •
   <a href="#how-to-use">How To Use</a> •
-  <a href="#credits">Credits</a> • •
+  <a href="#credits">Credits</a> •
   <a href="#license">License</a>
 </p>
 
@@ -50,6 +50,19 @@ $ npm install
 
 # Run the local host app
 $ npm run dev
+```
+
+if you want to use the pgfplots and tikz graph generation, youll need to start the backend. 
+
+```bash
+# change to backend directory
+$ cd cdloudmath/backend
+
+# Install dependencies
+$ npm install
+
+# Run the server
+$ npm start
 ```
 
 ## Credits
