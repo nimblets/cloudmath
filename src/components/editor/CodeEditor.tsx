@@ -30,80 +30,46 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(
     >([]);
 
     // Bubble preview
-    const [cursorCoords, setCursorCoords] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+    const [cursorCoords, setCursorCoords] = useState<{ top: number; left: number }>({
+      top: 0,
+      left: 0,
+    });
     const [currentLineLatex, setCurrentLineLatex] = useState("");
 
-    // --- Exposed Methods ---
-    useImperativeHandle(ref, () => ({
-      insertAtCursor: (text: string) => {
-        const editor = editorRef.current;
-        if (!editor) return;
-
-        const selection = editor.getSelection();
-        const position = selection ? selection.getStartPosition() : editor.getPosition();
-
-        if (position) {
-          editor.executeEdits("", [
-            {
-              range: {
-                startLineNumber: position.lineNumber,
-                startColumn: position.column,
-                endLineNumber: position.lineNumber,
-                endColumn: position.column,
-              },
-              text,
-            },
-          ]);
-
-          const lines = text.split("\n");
-          const newPosition = {
-            lineNumber: position.lineNumber + lines.length - 1,
-            column:
-              lines.length === 1
-                ? position.column + text.length
-                : lines[lines.length - 1].length + 1,
-          };
-          editor.setPosition(newPosition);
-          editor.focus();
-        }
-      },
-      focus: () => {
-        editorRef.current?.focus();
-      },
-    }));
-
-    // --- Field scanning / cycling ---
+    // --- Utility: scan current line for {} fields ---
     const scanCurrentLineForFields = (): boolean => {
       const editor = editorRef.current;
       if (!editor) return false;
 
       const pos = editor.getPosition();
       const lineContent = editor.getModel()?.getLineContent(pos.lineNumber) || "";
+
       const matches = [...lineContent.matchAll(/\{.*?\}/g)];
       if (matches.length === 0) return false;
 
+      // Determine cursor placement inside {} without skipping
       fieldPositions.current = matches.map((m) => {
-        const col = (m.index || 0) + 2; // cursor goes inside first char of {}
+        const col = (m.index || 0) + 2; // cursor inside {}
         return {
           start: { lineNumber: pos.lineNumber, column: col },
-          end: { lineNumber: pos.lineNumber, column: col + m[0].length - 2 },
+          end: { lineNumber: pos.lineNumber, column: col }, // just cursor, no highlight
         };
       });
 
       setCurrentLineLatex(lineContent);
+
       const coords = editor.getScrolledVisiblePosition(pos);
-      if (coords) setCursorCoords({ top: coords.top, left: coords.left });
+      if (coords) setCursorCoords({ top: coords.top - 5, left: coords.left });
 
       return true;
     };
 
     const moveToField = (index: number) => {
       const editor = editorRef.current;
-      if (!editor) return;
-      const field = fieldPositions.current[index];
-      if (!field) return;
+      if (!editor || !fieldPositions.current[index]) return;
 
-      editor.setPosition(field.start); // cursor inside {}
+      const field = fieldPositions.current[index];
+      editor.setPosition(field.start); // place cursor inside {}
       editor.focus();
       currentFieldIndex.current = index;
 
@@ -111,7 +77,7 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(
       setCurrentLineLatex(lineContent);
 
       const coords = editor.getScrolledVisiblePosition(editor.getPosition());
-      if (coords) setCursorCoords({ top: coords.top, left: coords.left });
+      if (coords) setCursorCoords({ top: coords.top - 5, left: coords.left });
     };
 
     const cycleToNextField = () => {
@@ -120,7 +86,37 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(
       moveToField(nextIndex);
     };
 
-    // --- Initialize Monaco + hotkeys ---
+    // --- Exposed Methods ---
+    useImperativeHandle(ref, () => ({
+      insertAtCursor: (text: string) => {
+        const editor = editorRef.current;
+        if (!editor) return;
+
+        const pos = editor.getPosition();
+        if (!pos) return;
+
+        editor.executeEdits("", [
+          {
+            range: {
+              startLineNumber: pos.lineNumber,
+              startColumn: pos.column,
+              endLineNumber: pos.lineNumber,
+              endColumn: pos.column,
+            },
+            text,
+          },
+        ]);
+
+        editor.setPosition({
+          lineNumber: pos.lineNumber,
+          column: pos.column + text.length,
+        });
+        editor.focus();
+      },
+      focus: () => editorRef.current?.focus(),
+    }));
+
+    // --- Initialize Monaco Editor ---
     useEffect(() => {
       loader.init().then((monaco) => {
         monaco.languages.register({ id: "latex" });
@@ -147,6 +143,7 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(
           },
         });
 
+        // Light theme
         monaco.editor.defineTheme("latex-light", {
           base: "vs",
           inherit: true,
@@ -159,12 +156,10 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(
             { token: "delimiter.curly", foreground: "000000", fontStyle: "bold" },
             { token: "delimiter.square", foreground: "000000" },
           ],
-          colors: {
-            "editor.background": "#ffffffff",
-            "editor.foreground": "#000000",
-          },
+          colors: { "editor.background": "#ffffffff", "editor.foreground": "#000000" },
         });
 
+        // Dark theme
         monaco.editor.defineTheme("latex-dark", {
           base: "vs-dark",
           inherit: true,
@@ -177,10 +172,7 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(
             { token: "delimiter.curly", foreground: "FFD700", fontStyle: "bold" },
             { token: "delimiter.square", foreground: "DA70D6" },
           ],
-          colors: {
-            "editor.background": "#1e1e1e",
-            "editor.foreground": "#d4d4d4",
-          },
+          colors: { "editor.background": "#1e1e1e", "editor.foreground": "#d4d4d4" },
         });
       });
     }, []);
@@ -194,43 +186,44 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(
           onChange={(v) => onChange(v || "")}
           onMount={async (editor) => {
             editorRef.current = editor;
+            await registerSymbolHotkeys(editor);
 
+            // --- Key handling ---
+            editor.onKeyDown((e) => {
+              // Alt+Hold activates
+              if (e.altKey && !speedCycleActive.current) {
+                const hasFields = scanCurrentLineForFields();
+                if (!hasFields) return;
+                speedCycleActive.current = true;
+                moveToField(0);
+              }
+
+              // Enter cycles
+              if (speedCycleActive.current && e.code === "Enter") {
+                e.preventDefault();
+                cycleToNextField();
+              }
+            });
+
+            // Alt release deactivates
+            editor.onKeyUp(() => {
+              if (!editorRef.current) return;
+              if (!window.event?.altKey) {
+                speedCycleActive.current = false;
+                currentFieldIndex.current = 0;
+                fieldPositions.current = [];
+              }
+            });
+
+            // Live KaTeX update
             editor.onDidChangeModelContent(() => {
               if (!speedCycleActive.current) return;
-
               const pos = editor.getPosition();
               const lineContent = editor.getModel()?.getLineContent(pos.lineNumber) || "";
               setCurrentLineLatex(lineContent);
 
               const coords = editor.getScrolledVisiblePosition(pos);
-              if (coords) setCursorCoords({ top: coords.top, left: coords.left });
-            });
-
-            await registerSymbolHotkeys(editor);
-
-            editor.onKeyDown((e) => {
-              if (e.shiftKey && e.code === "Tab") {
-                const hasFields = scanCurrentLineForFields();
-                if (!hasFields) return;
-                e.preventDefault();
-                speedCycleActive.current = true;
-                moveToField(0);
-              }
-
-              if (speedCycleActive.current) {
-                if (e.code === "Tab" || e.code === "Enter") {
-                  e.preventDefault();
-                  cycleToNextField();
-                }
-              }
-            });
-
-            editor.onKeyUp((e) => {
-              if (e.code === "ShiftLeft" || e.code === "ShiftRight") {
-                speedCycleActive.current = false;
-                currentFieldIndex.current = 0;
-                fieldPositions.current = [];
-              }
+              if (coords) setCursorCoords({ top: coords.top - 5, left: coords.left });
             });
           }}
           theme={theme === "dark" ? "latex-dark" : "latex-light"}
@@ -244,22 +237,17 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(
             automaticLayout: true,
             tabSize: 2,
             insertSpaces: true,
-            overviewRulerBorder: true,
-            hideCursorInOverviewRuler: true,
-            overviewRulerLanes: 0,
-            renderOverviewRuler: true,
-            scrollbar: { vertical: "visible", horizontal: "visible" },
             bracketPairColorization: { enabled: true },
             matchBrackets: "always",
           }}
         />
 
-        {/* Floating KaTeX Bubble */}
-        {speedCycleActive.current && fieldPositions.current.length > 0 && (
+        {/* KaTeX Bubble */}
+        {speedCycleActive.current && (
           <div
             className="absolute bg-white border rounded p-1 shadow z-50"
             style={{
-              top: cursorCoords.top - 30, // float above cursor
+              top: cursorCoords.top,
               left: cursorCoords.left,
               pointerEvents: "none",
             }}
