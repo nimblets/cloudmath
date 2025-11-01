@@ -89,13 +89,13 @@ export const CodeEditor = ({ value, onChange }: CodeEditorProps) => {
         onChange={(value) => onChange(value || "")}
         theme={theme === "dark" ? "latex-dark" : "latex-light"}
         options={{
-          minimap: { enabled: false },
+          minimap: { enabled: true },
           fontSize: 14,
           fontFamily: '"JetBrains Mono", monospace',
           lineNumbers: "on",
           rulers: [80],
           wordWrap: "on",
-          scrollBeyondLastLine: false,
+          scrollBeyondLastLine: true,
           automaticLayout: true,
           tabSize: 2,
           insertSpaces: true,
