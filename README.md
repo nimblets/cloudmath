@@ -1,7 +1,7 @@
 
 <h1 align="center">
   <br>
-  <img src="https://raw.githubusercontent.com/nimblets/cloudmath/master/public/logo.png" alt="cloudmath" width="200"></a>
+  <img src="https://raw.githubusercontent.com/nimblets/cloudmath/main/public/logo.png" alt="cloudmath" width="200"></a>
   <br>
   cloudmath
   <br>
@@ -18,7 +18,7 @@
   <a href="#license">License</a>
 </p>
 
-![screenshot](https://raw.githubusercontent.com/nimblets/cloudmath/master/public/example.gif)
+![screenshot](https://raw.githubusercontent.com/nimblets/cloudmath/main/public/example.gif)
 
 ## Key Features
 
