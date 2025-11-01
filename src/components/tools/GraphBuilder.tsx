@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -18,6 +17,75 @@ interface GraphBuilderProps {
   onInsertCode: (code: string) => void;
 }
 
+// --- DesmosPreview Component ---
+declare global {
+  interface Window {
+    Desmos: any;
+  }
+}
+
+const DesmosPreview = ({ expression }: { expression: string }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const calculatorRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!window.Desmos) {
+      const script = document.createElement("script");
+      script.src = "https://www.desmos.com/api/v1.8/calculator.js";
+      script.async = true;
+      script.onload = initCalculator;
+      document.body.appendChild(script);
+    } else {
+      initCalculator();
+    }
+
+    function initCalculator() {
+      if (containerRef.current && !calculatorRef.current) {
+        calculatorRef.current = window.Desmos.GraphingCalculator(containerRef.current, {
+          expressions: false,
+          settingsMenu: false,
+          zoomButtons: false,
+          expressionsTopbar: false,
+          lockViewport: false,
+          showResetButtonOnGraphpaper: false,
+          keypad: false,
+        });
+
+        calculatorRef.current.setMathBounds({
+          left: -5,
+          right: 5,
+          bottom: -5,
+          top: 5,
+        });
+      }
+    }
+
+    return () => {
+      calculatorRef.current?.destroy?.();
+      calculatorRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (calculatorRef.current) {
+      calculatorRef.current.setExpression({ id: "func", latex: expression });
+    }
+  }, [expression]);
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        width: "100%",
+        height: "400px",
+        border: "1px solid #ccc",
+        borderRadius: "8px",
+      }}
+    />
+  );
+};
+
+// --- Main GraphBuilder Component ---
 export const GraphBuilder = ({ onInsertCode }: GraphBuilderProps) => {
   const [points, setPoints] = useState<Point[]>([]);
   const [graphType, setGraphType] = useState<"scatter" | "line" | "function">("line");
@@ -27,14 +95,8 @@ export const GraphBuilder = ({ onInsertCode }: GraphBuilderProps) => {
   const [yMin, setYMin] = useState(-5);
   const [yMax] = useState(5);
 
-  const addPoint = () => {
-    setPoints([...points, { x: 0, y: 0 }]);
-  };
-
-  const removePoint = (index: number) => {
-    setPoints(points.filter((_, i) => i !== index));
-  };
-
+  const addPoint = () => setPoints([...points, { x: 0, y: 0 }]);
+  const removePoint = (index: number) => setPoints(points.filter((_, i) => i !== index));
   const updatePoint = (index: number, field: keyof Point, value: number | string) => {
     const newPoints = [...points];
     newPoints[index] = { ...newPoints[index], [field]: value };
@@ -71,7 +133,7 @@ export const GraphBuilder = ({ onInsertCode }: GraphBuilderProps) => {
 ] coordinates {
 `;
       points.forEach((p) => {
-        code += `  (${p.x},${p.y})${p.label ? ` node[above]{$${p.label}$}` : ''}\n`;
+        code += `  (${p.x},${p.y})${p.label ? ` node[above]{$${p.label}$}` : ""}\n`;
       });
       code += `};
 
@@ -99,7 +161,7 @@ export const GraphBuilder = ({ onInsertCode }: GraphBuilderProps) => {
 
   const handleInsert = () => {
     const code = generateTikZCode();
-    onInsertCode('\n' + code + '\n');
+    onInsertCode("\n" + code + "\n");
     toast.success("TikZ graph inserted!");
   };
 
@@ -107,7 +169,9 @@ export const GraphBuilder = ({ onInsertCode }: GraphBuilderProps) => {
     <Card className="p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">TikZ Graph Builder</h3>
-        <Button onClick={handleInsert} size="sm">Insert Graph</Button>
+        <Button onClick={handleInsert} size="sm">
+          Insert Graph
+        </Button>
       </div>
 
       <Tabs value={graphType} onValueChange={(v) => setGraphType(v as any)}>
@@ -117,6 +181,7 @@ export const GraphBuilder = ({ onInsertCode }: GraphBuilderProps) => {
           <TabsTrigger value="function">Function</TabsTrigger>
         </TabsList>
 
+        {/* --- Function Tab --- */}
         <TabsContent value="function" className="space-y-3">
           <div>
             <Label className="text-xs">Function (e.g., x^2, sin(x))</Label>
@@ -127,29 +192,17 @@ export const GraphBuilder = ({ onInsertCode }: GraphBuilderProps) => {
               className="mt-1"
             />
           </div>
-          
+
           <div>
-            <Label className="text-xs mb-2 block">Desmos Preview</Label>
-            <iframe
-              src={`https://www.desmos.com/calculator`}
-              className="w-full h-64 border border-border rounded"
-              title="Desmos Calculator"
-              onLoad={(e) => {
-                const iframe = e.target as HTMLIFrameElement;
-                try {
-                  // Desmos API would need to be initialized here
-                  // For now, just show the calculator interface
-                } catch (error) {
-                  console.error('Desmos iframe error:', error);
-                }
-              }}
-            />
+            <Label className="text-xs mb-2 block">Graph Preview</Label>
+            <DesmosPreview expression={functionExpr} />
             <p className="text-xs text-muted-foreground mt-1">
-              Type your function in the Desmos calculator above to preview
+              Graph updates automatically as you edit the function.
             </p>
           </div>
         </TabsContent>
 
+        {/* --- Line Tab --- */}
         <TabsContent value="line" className="space-y-3">
           <div className="flex items-center justify-between">
             <Label className="text-xs">Points</Label>
@@ -163,20 +216,20 @@ export const GraphBuilder = ({ onInsertCode }: GraphBuilderProps) => {
                 <Input
                   type="number"
                   value={point.x}
-                  onChange={(e) => updatePoint(idx, 'x', parseFloat(e.target.value))}
+                  onChange={(e) => updatePoint(idx, "x", parseFloat(e.target.value))}
                   placeholder="x"
                   className="w-20"
                 />
                 <Input
                   type="number"
                   value={point.y}
-                  onChange={(e) => updatePoint(idx, 'y', parseFloat(e.target.value))}
+                  onChange={(e) => updatePoint(idx, "y", parseFloat(e.target.value))}
                   placeholder="y"
                   className="w-20"
                 />
                 <Input
-                  value={point.label || ''}
-                  onChange={(e) => updatePoint(idx, 'label', e.target.value)}
+                  value={point.label || ""}
+                  onChange={(e) => updatePoint(idx, "label", e.target.value)}
                   placeholder="Label"
                   className="flex-1"
                 />
@@ -188,6 +241,7 @@ export const GraphBuilder = ({ onInsertCode }: GraphBuilderProps) => {
           </div>
         </TabsContent>
 
+        {/* --- Scatter Tab --- */}
         <TabsContent value="scatter" className="space-y-3">
           <div className="flex items-center justify-between">
             <Label className="text-xs">Points</Label>
@@ -201,14 +255,14 @@ export const GraphBuilder = ({ onInsertCode }: GraphBuilderProps) => {
                 <Input
                   type="number"
                   value={point.x}
-                  onChange={(e) => updatePoint(idx, 'x', parseFloat(e.target.value))}
+                  onChange={(e) => updatePoint(idx, "x", parseFloat(e.target.value))}
                   placeholder="x"
                   className="w-24"
                 />
                 <Input
                   type="number"
                   value={point.y}
-                  onChange={(e) => updatePoint(idx, 'y', parseFloat(e.target.value))}
+                  onChange={(e) => updatePoint(idx, "y", parseFloat(e.target.value))}
                   placeholder="y"
                   className="w-24"
                 />
