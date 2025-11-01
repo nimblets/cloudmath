@@ -22,7 +22,7 @@ interface CommandPaletteProps {
   onSelect: (code: string) => void;
 }
 
-const allSymbols: Symbol[] = [
+export const allSymbols: Symbol[] = [
   // Greek
   { label: "α (alpha)", code: "\\alpha", key: "Alt+A", category: "Greek" },
   { label: "β (beta)", code: "\\beta", key: "Alt+B", category: "Greek" },
