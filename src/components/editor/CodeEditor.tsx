@@ -1,6 +1,7 @@
 import Editor, { loader } from "@monaco-editor/react";
 import { useTheme } from "@/hooks/useTheme";
 import { useEffect, useRef, useImperativeHandle, forwardRef } from "react";
+import { registerSymbolHotkeys } from "@/lib/registerSymbolHotkeys";
 
 interface CodeEditorProps {
   value: string;
@@ -127,8 +128,9 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(({ value, o
         defaultLanguage="latex"
         value={value}
         onChange={(value) => onChange(value || "")}
-        onMount={(editor) => {
+        onMount={async (editor) => {
           editorRef.current = editor;
+          await registerSymbolHotkeys(editor);
         }}
         theme={theme === "dark" ? "latex-dark" : "latex-light"}
         options={{

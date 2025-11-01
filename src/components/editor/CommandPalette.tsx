@@ -8,6 +8,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 
+
 interface Symbol {
   label: string;
   code: string;
