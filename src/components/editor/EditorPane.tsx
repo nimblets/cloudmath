@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { TabBar } from "./TabBar";
-import { CodeEditor } from "./CodeEditor";
+import { CodeEditor, type CodeEditorRef } from "./CodeEditor";
 import { SymbolBar } from "./SymbolBar";
 import { CalculatorPane } from "./CalculatorPane";
 import { DraggableCalculator } from "./DraggableCalculator";
+import { CommandPalette } from "./CommandPalette";
 import type { Document } from "../LaTeXEditor";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { PreviewPane } from "../preview/PreviewPane";
@@ -34,10 +35,131 @@ export const EditorPane = ({
   const [calcDirection, setCalcDirection] = useState<"horizontal" | "vertical">("horizontal");
   const [previewDirection, setPreviewDirection] = useState<"horizontal" | "vertical">("vertical");
   const [calcMode, setCalcMode] = useState<"panel" | "popup">("panel");
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const editorRef = useRef<CodeEditorRef>(null);
+
+  // Handle keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const modKey = isMac ? e.metaKey : e.ctrlKey;
+      
+      // Ctrl/Cmd+K for command palette
+      if (modKey && e.key === 'k') {
+        e.preventDefault();
+        setCommandPaletteOpen(true);
+        return;
+      }
+
+      // Don't handle other shortcuts if not in editor
+      if (!editorRef.current) return;
+
+      // Ctrl shortcuts
+      if (modKey && !e.shiftKey && !e.altKey) {
+        switch (e.key) {
+          case '/':
+            e.preventDefault();
+            editorRef.current.insertAtCursor('\\frac{}{}');
+            break;
+          case 'i':
+            e.preventDefault();
+            editorRef.current.insertAtCursor('\\int');
+            break;
+          case 's':
+            e.preventDefault();
+            editorRef.current.insertAtCursor('\\sum');
+            break;
+          case 'p':
+            e.preventDefault();
+            editorRef.current.insertAtCursor('\\prod');
+            break;
+          case 'r':
+            e.preventDefault();
+            editorRef.current.insertAtCursor('\\sqrt{}');
+            break;
+          case '8':
+            e.preventDefault();
+            editorRef.current.insertAtCursor('\\infty');
+            break;
+          case 'd':
+            e.preventDefault();
+            editorRef.current.insertAtCursor('\\partial');
+            break;
+          case 'n':
+            e.preventDefault();
+            editorRef.current.insertAtCursor('\\nabla');
+            break;
+          case 'l':
+            e.preventDefault();
+            editorRef.current.insertAtCursor('\\lim_{}');
+            break;
+          case 'e':
+            e.preventDefault();
+            editorRef.current.insertAtCursor('\\in');
+            break;
+          case 'a':
+            e.preventDefault();
+            editorRef.current.insertAtCursor('\\forall');
+            break;
+        }
+      }
+
+      // Ctrl+Shift shortcuts
+      if (modKey && e.shiftKey && !e.altKey) {
+        switch (e.key) {
+          case 'D':
+            e.preventDefault();
+            editorRef.current.insertAtCursor('\\frac{d}{dx}');
+            break;
+          case 'E':
+            e.preventDefault();
+            editorRef.current.insertAtCursor('\n\\[\n  \n\\]\n');
+            break;
+          case 'A':
+            e.preventDefault();
+            editorRef.current.insertAtCursor('\n\\begin{align}\n  \n\\end{align}\n');
+            break;
+          case 'M':
+            e.preventDefault();
+            editorRef.current.insertAtCursor('\\begin{bmatrix}\n  \n\\end{bmatrix}');
+            break;
+          case 'C':
+            e.preventDefault();
+            editorRef.current.insertAtCursor('\\begin{cases}\n  \n\\end{cases}');
+            break;
+        }
+      }
+
+      // Alt shortcuts (Greek letters)
+      if (e.altKey && !modKey && !e.shiftKey) {
+        const greekMap: Record<string, string> = {
+          'a': '\\alpha',
+          'b': '\\beta',
+          'g': '\\gamma',
+          'd': '\\delta',
+          'e': '\\epsilon',
+          't': '\\theta',
+          'l': '\\lambda',
+          'm': '\\mu',
+          'p': '\\pi',
+          's': '\\sigma',
+          'f': '\\phi',
+          'o': '\\omega',
+        };
+        
+        if (greekMap[e.key.toLowerCase()]) {
+          e.preventDefault();
+          editorRef.current.insertAtCursor(greekMap[e.key.toLowerCase()]);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const insertSymbol = (symbol: string) => {
-    // For now, just append to end. In future, insert at cursor position
-    onContentChange(activeDocId, activeDoc.content + symbol);
+    editorRef.current?.insertAtCursor(symbol);
   };
 
   // Determine the outer panel group direction
@@ -131,6 +253,7 @@ export const EditorPane = ({
           
           <div className="flex-1 overflow-hidden">
             <CodeEditor
+              ref={editorRef}
               value={activeDoc.content}
               onChange={(value) => onContentChange(activeDocId, value)}
             />
@@ -228,6 +351,7 @@ export const EditorPane = ({
             
               <div className="flex-1 overflow-hidden">
                 <CodeEditor
+                  ref={editorRef}
                   value={activeDoc.content}
                   onChange={(value) => onContentChange(activeDocId, value)}
                 />
@@ -255,6 +379,12 @@ export const EditorPane = ({
           onClose={() => setShowCalculator(false)}
         />
       )}
+      
+      <CommandPalette
+        open={commandPaletteOpen}
+        onOpenChange={setCommandPaletteOpen}
+        onSelect={insertSymbol}
+      />
     </>
   );
 };

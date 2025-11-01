@@ -99,7 +99,7 @@ export const GraphBuilder = ({ onInsertCode }: GraphBuilderProps) => {
 
   const handleInsert = () => {
     const code = generateTikZCode();
-    onInsertCode(code);
+    onInsertCode('\n' + code + '\n');
     toast.success("TikZ graph inserted!");
   };
 

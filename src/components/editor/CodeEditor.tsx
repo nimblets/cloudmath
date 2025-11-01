@@ -1,14 +1,54 @@
 import Editor, { loader } from "@monaco-editor/react";
 import { useTheme } from "@/hooks/useTheme";
-import { useEffect } from "react";
+import { useEffect, useRef, useImperativeHandle, forwardRef } from "react";
 
 interface CodeEditorProps {
   value: string;
   onChange: (value: string) => void;
 }
 
-export const CodeEditor = ({ value, onChange }: CodeEditorProps) => {
+export interface CodeEditorRef {
+  insertAtCursor: (text: string) => void;
+  focus: () => void;
+}
+
+export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(({ value, onChange }, ref) => {
   const theme = useTheme();
+  const editorRef = useRef<any>(null);
+
+  useImperativeHandle(ref, () => ({
+    insertAtCursor: (text: string) => {
+      const editor = editorRef.current;
+      if (!editor) return;
+      
+      const selection = editor.getSelection();
+      const position = selection ? selection.getStartPosition() : editor.getPosition();
+      
+      if (position) {
+        editor.executeEdits('', [{
+          range: {
+            startLineNumber: position.lineNumber,
+            startColumn: position.column,
+            endLineNumber: position.lineNumber,
+            endColumn: position.column
+          },
+          text: text
+        }]);
+        
+        // Move cursor to end of inserted text
+        const lines = text.split('\n');
+        const newPosition = {
+          lineNumber: position.lineNumber + lines.length - 1,
+          column: lines.length === 1 ? position.column + text.length : lines[lines.length - 1].length + 1
+        };
+        editor.setPosition(newPosition);
+        editor.focus();
+      }
+    },
+    focus: () => {
+      editorRef.current?.focus();
+    }
+  }));
 
   useEffect(() => {
     loader.init().then((monaco) => {
@@ -87,6 +127,9 @@ export const CodeEditor = ({ value, onChange }: CodeEditorProps) => {
         defaultLanguage="latex"
         value={value}
         onChange={(value) => onChange(value || "")}
+        onMount={(editor) => {
+          editorRef.current = editor;
+        }}
         theme={theme === "dark" ? "latex-dark" : "latex-light"}
         options={{
           minimap: { enabled: true },
@@ -116,4 +159,6 @@ export const CodeEditor = ({ value, onChange }: CodeEditorProps) => {
       />
     </div>
   );
-};
+});
+
+CodeEditor.displayName = 'CodeEditor';
