@@ -30,10 +30,7 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(
     >([]);
 
     // Bubble preview
-    const [cursorCoords, setCursorCoords] = useState<{ top: number; left: number }>({
-      top: 0,
-      left: 0,
-    });
+    const [cursorCoords, setCursorCoords] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
     const [currentLineLatex, setCurrentLineLatex] = useState("");
 
     // --- Exposed Methods ---
@@ -82,15 +79,14 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(
 
       const pos = editor.getPosition();
       const lineContent = editor.getModel()?.getLineContent(pos.lineNumber) || "";
-
       const matches = [...lineContent.matchAll(/\{.*?\}/g)];
-      if (matches.length === 0) return false; // <-- no fields, do nothing
+      if (matches.length === 0) return false;
 
       fieldPositions.current = matches.map((m) => {
-        const col = (m.index || 0) + 1;
+        const col = (m.index || 0) + 2; // cursor goes inside first char of {}
         return {
           start: { lineNumber: pos.lineNumber, column: col },
-          end: { lineNumber: pos.lineNumber, column: col + m[0].length },
+          end: { lineNumber: pos.lineNumber, column: col + m[0].length - 2 },
         };
       });
 
@@ -98,28 +94,20 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(
       const coords = editor.getScrolledVisiblePosition(pos);
       if (coords) setCursorCoords({ top: coords.top, left: coords.left });
 
-      return true; // <-- fields exist
+      return true;
     };
-
 
     const moveToField = (index: number) => {
       const editor = editorRef.current;
       if (!editor) return;
-      if (!fieldPositions.current[index]) return;
-
       const field = fieldPositions.current[index];
-      editor.setSelection({
-        startLineNumber: field.start.lineNumber,
-        startColumn: field.start.column,
-        endLineNumber: field.end.lineNumber,
-        endColumn: field.end.column,
-      });
+      if (!field) return;
+
+      editor.setPosition(field.start); // cursor inside {}
       editor.focus();
       currentFieldIndex.current = index;
 
-      // Update bubble
-      const lineContent =
-        editor.getModel()?.getLineContent(field.start.lineNumber) || "";
+      const lineContent = editor.getModel()?.getLineContent(field.start.lineNumber) || "";
       setCurrentLineLatex(lineContent);
 
       const coords = editor.getScrolledVisiblePosition(editor.getPosition());
@@ -206,32 +194,10 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(
           onChange={(v) => onChange(v || "")}
           onMount={async (editor) => {
             editorRef.current = editor;
-          
-            editor.onDidChangeCursorSelection(() => {
-              if (!speedCycleActive.current) return;
-
-              const pos = editor.getPosition();
-              const field = fieldPositions.current[currentFieldIndex.current];
-              if (!field) return;
-
-              // Check if cursor is still inside current field
-              if (
-                pos.lineNumber === field.start.lineNumber &&
-                pos.column >= field.start.column &&
-                pos.column <= field.end.column
-              ) {
-                const lineContent = editor.getModel()?.getLineContent(pos.lineNumber) || "";
-                setCurrentLineLatex(lineContent);
-
-                const coords = editor.getScrolledVisiblePosition(pos);
-                if (coords) setCursorCoords({ top: coords.top, left: coords.left });
-              }
-            });
 
             editor.onDidChangeModelContent(() => {
               if (!speedCycleActive.current) return;
 
-              // Update current line's KaTeX preview live
               const pos = editor.getPosition();
               const lineContent = editor.getModel()?.getLineContent(pos.lineNumber) || "";
               setCurrentLineLatex(lineContent);
@@ -243,17 +209,14 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(
             await registerSymbolHotkeys(editor);
 
             editor.onKeyDown((e) => {
-              // Activate speed cycle with Shift+Tab
               if (e.shiftKey && e.code === "Tab") {
                 const hasFields = scanCurrentLineForFields();
-                if (!hasFields) return; // <-- do nothing if no fields
-
+                if (!hasFields) return;
                 e.preventDefault();
                 speedCycleActive.current = true;
                 moveToField(0);
               }
 
-              // Cycle fields when active
               if (speedCycleActive.current) {
                 if (e.code === "Tab" || e.code === "Enter") {
                   e.preventDefault();
@@ -263,7 +226,7 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(
             });
 
             editor.onKeyUp((e) => {
-              if (e.code === "Tab" || e.code === "ShiftLeft" || e.code === "ShiftRight") {
+              if (e.code === "ShiftLeft" || e.code === "ShiftRight") {
                 speedCycleActive.current = false;
                 currentFieldIndex.current = 0;
                 fieldPositions.current = [];
@@ -292,10 +255,14 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(
         />
 
         {/* Floating KaTeX Bubble */}
-        {speedCycleActive.current && (
+        {speedCycleActive.current && fieldPositions.current.length > 0 && (
           <div
             className="absolute bg-white border rounded p-1 shadow z-50"
-            style={{ top: cursorCoords.top, left: cursorCoords.left, pointerEvents: "none" }}
+            style={{
+              top: cursorCoords.top - 30, // float above cursor
+              left: cursorCoords.left,
+              pointerEvents: "none",
+            }}
           >
             <span
               dangerouslySetInnerHTML={{
