@@ -10,7 +10,6 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/componen
 import { PreviewPane } from "../preview/PreviewPane";
 import { Button } from "@/components/ui/button";
 import { Calculator, X, Plus, Maximize2 } from "lucide-react";
-
 interface EditorPaneProps {
   documents: Document[];
   activeDocId: string;
@@ -20,7 +19,6 @@ interface EditorPaneProps {
   onRenameDocument: (id: string, newTitle: string) => void;
   onCloseDocument: (id: string) => void;
 }
-
 export const EditorPane = ({
   documents,
   activeDocId,
@@ -28,9 +26,9 @@ export const EditorPane = ({
   onContentChange,
   onNewDocument,
   onRenameDocument,
-  onCloseDocument,
+  onCloseDocument
 }: EditorPaneProps) => {
-  const activeDoc = documents.find((d) => d.id === activeDocId) || documents[0];
+  const activeDoc = documents.find(d => d.id === activeDocId) || documents[0];
   const [showCalculator, setShowCalculator] = useState(false);
   const [calcDirection, setCalcDirection] = useState<"horizontal" | "vertical">("horizontal");
   const [previewDirection, setPreviewDirection] = useState<"horizontal" | "vertical">("vertical");
@@ -43,7 +41,7 @@ export const EditorPane = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       const modKey = isMac ? e.metaKey : e.ctrlKey;
-      
+
       // Ctrl/Cmd+K for command palette
       if (modKey && e.key === 'k') {
         e.preventDefault();
@@ -144,119 +142,77 @@ export const EditorPane = ({
           'p': '\\pi',
           's': '\\sigma',
           'f': '\\phi',
-          'o': '\\omega',
+          'o': '\\omega'
         };
-        
         if (greekMap[e.key.toLowerCase()]) {
           e.preventDefault();
           editorRef.current.insertAtCursor(greekMap[e.key.toLowerCase()]);
         }
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
-
   const insertSymbol = (symbol: string) => {
     editorRef.current?.insertAtCursor(symbol);
   };
 
   // Determine the outer panel group direction
-  const outerDirection = previewDirection === "horizontal" && showCalculator && calcMode === "panel" 
-    ? "vertical" 
-    : "horizontal";
-  
+  const outerDirection = previewDirection === "horizontal" && showCalculator && calcMode === "panel" ? "vertical" : "horizontal";
+
   // Determine the inner (editor+calc) panel group direction
   const innerDirection = calcDirection;
-
-  return (
-    <>
+  return <>
       <ResizablePanelGroup direction={outerDirection} className="flex-1">
         <ResizablePanel defaultSize={50} minSize={25}>
-          {showCalculator && calcMode === "panel" ? (
-            <ResizablePanelGroup direction={innerDirection}>
+          {showCalculator && calcMode === "panel" ? <ResizablePanelGroup direction={innerDirection}>
               <ResizablePanel defaultSize={65} minSize={30}>
                 <div className="flex flex-col h-full">
             <div className="flex items-center bg-secondary border-b border-border h-10">
               <div className="flex-1 overflow-x-auto">
                 <div className="flex items-center h-full">
-                  {documents.map((doc) => (
-                    <div
-                      key={doc.id}
-                      className={`flex items-center gap-1 px-3 h-full border-r border-border cursor-pointer group ${
-                        doc.id === activeDocId ? "bg-card" : "hover:bg-card/50"
-                      }`}
-                      onClick={() => onDocumentChange(doc.id)}
-                    >
+                  {documents.map(doc => <div key={doc.id} className={`flex items-center gap-1 px-3 h-full border-r border-border cursor-pointer group ${doc.id === activeDocId ? "bg-card" : "hover:bg-card/50"}`} onClick={() => onDocumentChange(doc.id)}>
                       <span className="text-xs font-mono truncate max-w-[120px]">
                         {doc.title}
                       </span>
-                      {documents.length > 1 && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onCloseDocument(doc.id);
-                          }}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
+                      {documents.length > 1 && <button onClick={e => {
+                        e.stopPropagation();
+                        onCloseDocument(doc.id);
+                      }} className="opacity-0 group-hover:opacity-100 transition-opacity">
                           <X className="w-3 h-3 hover:text-destructive" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                        </button>}
+                    </div>)}
                   
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onNewDocument}
-                    className="h-8 ml-1"
-                  >
+                  <Button variant="ghost" size="sm" onClick={onNewDocument} className="h-8 ml-1">
                     <Plus className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
               <div className="flex gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0"
-                  onClick={() => {
+                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => {
                     if (calcMode === "panel") {
                       setCalcMode("popup");
                       setShowCalculator(true);
                     } else {
                       setCalcMode("panel");
                     }
-                  }}
-                  title="Pop Out Calculator"
-                >
+                  }} title="Pop Out Calculator">
                   <Maximize2 className="h-4 w-4" />
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0"
-                  onClick={() => {
+                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => {
                     setShowCalculator(!showCalculator);
                     // Reset to panel mode when hiding calculator if it was in popup mode
                     if (!showCalculator) {
                       setCalcMode("panel");
                     }
-                  }}
-                  title="Toggle Calculator"
-                >
+                  }} title="Toggle Calculator">
                   <Calculator className="h-4 w-4" />
                 </Button>
               </div>
             </div>
           
           <div className="flex-1 overflow-hidden">
-            <CodeEditor
-              ref={editorRef}
-              value={activeDoc.content}
-              onChange={(value) => onContentChange(activeDocId, value)}
-            />
+            <CodeEditor ref={editorRef} value={activeDoc.content} onChange={value => onContentChange(activeDocId, value)} />
           </div>
           
           <SymbolBar onInsertSymbol={insertSymbol} />
@@ -266,125 +222,69 @@ export const EditorPane = ({
               <ResizableHandle />
               
               <ResizablePanel defaultSize={35} minSize={20} maxSize={50}>
-                <CalculatorPane 
-                  onInsertResult={insertSymbol} 
-                  onClose={() => setShowCalculator(false)}
-                  direction={calcDirection}
-                  onToggleDirection={() => setCalcDirection(d => d === "horizontal" ? "vertical" : "horizontal")}
-                />
+                <CalculatorPane onInsertResult={insertSymbol} onClose={() => setShowCalculator(false)} direction={calcDirection} onToggleDirection={() => setCalcDirection(d => d === "horizontal" ? "vertical" : "horizontal")} />
               </ResizablePanel>
-            </ResizablePanelGroup>
-          ) : (
-            <div className="flex flex-col h-full">
-              <div className="flex items-center bg-secondary border-b border-border h-10">
+            </ResizablePanelGroup> : <div className="flex flex-col h-full">
+              <div className="flex items-center bg-secondary border-b border-border h-10 mx-0 my-0 py-[24px]">
                 <div className="flex-1 overflow-x-auto">
                   <div className="flex items-center h-full">
-                    {documents.map((doc) => (
-                      <div
-                        key={doc.id}
-                        className={`flex items-center gap-1 px-3 h-full border-r border-border cursor-pointer group ${
-                          doc.id === activeDocId ? "bg-card" : "hover:bg-card/50"
-                        }`}
-                        onClick={() => onDocumentChange(doc.id)}
-                      >
+                    {documents.map(doc => <div key={doc.id} className={`flex items-center gap-1 px-3 h-full border-r border-border cursor-pointer group ${doc.id === activeDocId ? "bg-card" : "hover:bg-card/50"}`} onClick={() => onDocumentChange(doc.id)}>
                         <span className="text-xs font-mono truncate max-w-[120px]">
                           {doc.title}
                         </span>
-                        {documents.length > 1 && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onCloseDocument(doc.id);
-                            }}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
+                        {documents.length > 1 && <button onClick={e => {
+                    e.stopPropagation();
+                    onCloseDocument(doc.id);
+                  }} className="opacity-0 group-hover:opacity-100 transition-opacity">
                             <X className="w-3 h-3 hover:text-destructive" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                          </button>}
+                      </div>)}
                     
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={onNewDocument}
-                      className="h-8 ml-1"
-                    >
+                    <Button variant="ghost" size="sm" onClick={onNewDocument} className="h-8 ml-1">
                       <Plus className="w-4 h-4" />
                     </Button>
                   </div>
                 </div>
                 <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 shrink-0"
-                    onClick={() => {
-                      if (calcMode === "panel") {
-                        setCalcMode("popup");
-                        setShowCalculator(true);
-                      } else {
-                        setCalcMode("panel");
-                      }
-                    }}
-                    title="Pop Out Calculator"
-                  >
+                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => {
+                if (calcMode === "panel") {
+                  setCalcMode("popup");
+                  setShowCalculator(true);
+                } else {
+                  setCalcMode("panel");
+                }
+              }} title="Pop Out Calculator">
                     <Maximize2 className="h-4 w-4" />
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 shrink-0"
-                    onClick={() => {
-                      setShowCalculator(!showCalculator);
-                      // Reset to panel mode when hiding calculator if it was in popup mode
-                      if (!showCalculator) {
-                        setCalcMode("panel");
-                      }
-                    }}
-                    title="Toggle Calculator"
-                  >
+                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => {
+                setShowCalculator(!showCalculator);
+                // Reset to panel mode when hiding calculator if it was in popup mode
+                if (!showCalculator) {
+                  setCalcMode("panel");
+                }
+              }} title="Toggle Calculator">
                     <Calculator className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
             
               <div className="flex-1 overflow-hidden">
-                <CodeEditor
-                  ref={editorRef}
-                  value={activeDoc.content}
-                  onChange={(value) => onContentChange(activeDocId, value)}
-                />
+                <CodeEditor ref={editorRef} value={activeDoc.content} onChange={value => onContentChange(activeDocId, value)} />
               </div>
               
               <SymbolBar onInsertSymbol={insertSymbol} />
-            </div>
-          )}
+            </div>}
         </ResizablePanel>
         
         <ResizableHandle />
         
         <ResizablePanel defaultSize={50} minSize={30}>
-          <PreviewPane 
-            content={activeDoc.content}
-            direction={previewDirection}
-            onToggleDirection={() => setPreviewDirection(d => d === "horizontal" ? "vertical" : "horizontal")}
-          />
+          <PreviewPane content={activeDoc.content} direction={previewDirection} onToggleDirection={() => setPreviewDirection(d => d === "horizontal" ? "vertical" : "horizontal")} />
         </ResizablePanel>
       </ResizablePanelGroup>
       
-      {showCalculator && calcMode === "popup" && (
-        <DraggableCalculator
-          onInsertResult={insertSymbol}
-          onClose={() => setShowCalculator(false)}
-        />
-      )}
+      {showCalculator && calcMode === "popup" && <DraggableCalculator onInsertResult={insertSymbol} onClose={() => setShowCalculator(false)} />}
       
-      <CommandPalette
-        open={commandPaletteOpen}
-        onOpenChange={setCommandPaletteOpen}
-        onSelect={insertSymbol}
-      />
-    </>
-  );
+      <CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} onSelect={insertSymbol} />
+    </>;
 };
