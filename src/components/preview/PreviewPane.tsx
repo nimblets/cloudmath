@@ -19,7 +19,7 @@ export const PreviewPane = ({ content, direction = "vertical", onToggleDirection
     }
 
     const previewContent = document.querySelector('.preview-content')?.innerHTML || '';
-    
+
     previewWindow.document.write(`
       <!DOCTYPE html>
       <html>
@@ -32,25 +32,33 @@ export const PreviewPane = ({ content, direction = "vertical", onToggleDirection
               margin: 1in;
               line-height: 1.6;
             }
-            a {
-              color: inherit;
-              text-decoration: none;
-            }
+            a { color: inherit; text-decoration: none; }
+            
+            /* Center all block-level elements that were wrapped */
+            .block-center { text-align: center; margin: 1em 0; }
+
+            table { margin: 1em auto; border-collapse: collapse; }
+            td, th { border: 1px solid #333; padding: 0.25em 0.5em; }
+
+            img { max-width: 100%; height: auto; }
+
             @media print {
               body { margin: 0.5in; }
               a[href]:after { content: none !important; }
               nav, .no-print { display: none !important; }
             }
-            @page {
-              margin: 0.5in;
-            }
+
+            @page { margin: 0.5in; }
           </style>
         </head>
-        <body>${previewContent}</body>
+        <body>
+          ${previewContent}
+        </body>
       </html>
     `);
+
     previewWindow.document.close();
-    
+
     setTimeout(() => {
       previewWindow.print();
       toast.success("Opening print dialog for PDF export");
