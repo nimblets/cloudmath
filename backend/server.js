@@ -27,37 +27,26 @@ app.post('/api/render-latex', async (req, res) => {
   const svgFile = path.join(tempDir, `${filename}.svg`);
 
   try {
-    let { fragment } = req.body;
+    const { fragment } = req.body;
     if (!fragment || typeof fragment !== 'string') {
       return res.status(400).json({ success: false, error: 'Missing or invalid fragment.' });
     }
 
     await fs.mkdir(tempDir, { recursive: true });
 
-    // Minimal standalone LaTeX file with common packages
     const fullLatex = `
-\\documentclass[border=2pt]{standalone}
-
-% Math & symbols
-\\usepackage{amsmath, amssymb, amsfonts}
-
-% Colors & boxes
-\\usepackage{xcolor}
-\\usepackage{tcolorbox}
-
-% Graphics
+\\documentclass{article}
+\\usepackage[utf8]{inputenc}
+\\usepackage[T1]{fontenc}
+\\usepackage{lmodern}
+\\usepackage{amsmath,amssymb}
 \\usepackage{tikz}
 \\usepackage{pgfplots}
 \\pgfplotsset{compat=1.18}
-\\usepackage{graphicx}
-
-% Optional nice font
-\\usepackage{lmodern}
-
-% Centering for figures, tables, tikz
+\\usepackage[most]{tcolorbox}
 \\usepackage{float}
 \\usepackage{caption}
-
+\\usepackage{graphicx}
 \\begin{document}
 ${fragment}
 \\end{document}
@@ -65,10 +54,10 @@ ${fragment}
 
     await fs.writeFile(texFile, fullLatex);
 
-    // Compile safely (no shell escape)
+    // Compile safely
     await execAsync(`pdflatex -no-shell-escape -interaction=nonstopmode -halt-on-error -output-directory=${tempDir} ${texFile}`, {
       cwd: tempDir,
-      timeout: 15000,
+      timeout: 20000,
     });
 
     // Convert PDF → SVG
@@ -100,7 +89,7 @@ ${fragment}
       if (match) errorDetails = match[0];
     } catch {}
 
-    // Cleanup
+    // Cleanup any leftover temp files
     try {
       const files = await fs.readdir(tempDir);
       for (const f of files) {
@@ -119,6 +108,5 @@ ${fragment}
 app.listen(PORT, () => {
   console.log(`✅ LaTeX rendering server running at http://localhost:${PORT}`);
   console.log('Safe defaults: no shell escape, per-request temp files.');
-  console.log('Supports: tikz, pgfplots, tcolorbox, tables, figures, math environments.');
   console.log('Requires: pdflatex and pdf2svg installed.');
 });
