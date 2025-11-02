@@ -34,13 +34,30 @@ app.post('/api/render-latex', async (req, res) => {
 
     await fs.mkdir(tempDir, { recursive: true });
 
-    // Minimal standalone LaTeX file
+    // Minimal standalone LaTeX file with common packages
     const fullLatex = `
 \\documentclass[border=2pt]{standalone}
+
+% Math & symbols
+\\usepackage{amsmath, amssymb, amsfonts}
+
+% Colors & boxes
+\\usepackage{xcolor}
+\\usepackage{tcolorbox}
+
+% Graphics
 \\usepackage{tikz}
 \\usepackage{pgfplots}
-\\usepackage{amsmath,amssymb}
 \\pgfplotsset{compat=1.18}
+\\usepackage{graphicx}
+
+% Optional nice font
+\\usepackage{lmodern}
+
+% Centering for figures, tables, tikz
+\\usepackage{float}
+\\usepackage{caption}
+
 \\begin{document}
 ${fragment}
 \\end{document}
@@ -48,7 +65,7 @@ ${fragment}
 
     await fs.writeFile(texFile, fullLatex);
 
-    // Compile safely
+    // Compile safely (no shell escape)
     await execAsync(`pdflatex -no-shell-escape -interaction=nonstopmode -halt-on-error -output-directory=${tempDir} ${texFile}`, {
       cwd: tempDir,
       timeout: 15000,
@@ -102,5 +119,6 @@ ${fragment}
 app.listen(PORT, () => {
   console.log(`✅ LaTeX rendering server running at http://localhost:${PORT}`);
   console.log('Safe defaults: no shell escape, per-request temp files.');
+  console.log('Supports: tikz, pgfplots, tcolorbox, tables, figures, math environments.');
   console.log('Requires: pdflatex and pdf2svg installed.');
 });
