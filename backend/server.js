@@ -19,9 +19,6 @@ app.use(express.json());
 // Ensure Homebrew-installed binaries are available to Node
 process.env.PATH += ':/usr/local/bin:/opt/homebrew/bin';
 
-// Serve static SVG files
-app.use('/svg', express.static(path.join(__dirname, 'temp')));
-
 app.post('/api/render-tikz', async (req, res) => {
   const tempDir = path.join(__dirname, 'temp');
   const filename = `tikz_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -38,11 +35,12 @@ app.post('/api/render-tikz', async (req, res) => {
     // Create temp directory if needed
     await fs.mkdir(tempDir, { recursive: true });
 
-    // Write minimal standalone LaTeX file
+    // Minimal standalone LaTeX file for safe compilation
     const fullLatex = `
 \\documentclass[border=2pt]{standalone}
 \\usepackage{tikz}
 \\usepackage{pgfplots}
+\\usepackage{amsmath}
 \\pgfplotsset{compat=1.18}
 \\begin{document}
 ${tikzCode}
@@ -50,13 +48,13 @@ ${tikzCode}
 `;
     await fs.writeFile(texFile, fullLatex);
 
-    // Compile to PDF using pdflatex (no DVI step needed)
-    await execAsync(`pdflatex -interaction=nonstopmode -halt-on-error -output-directory=${tempDir} ${texFile}`, {
+    // Compile with no shell escape for security
+    await execAsync(`pdflatex -no-shell-escape -interaction=nonstopmode -halt-on-error -output-directory=${tempDir} ${texFile}`, {
       cwd: tempDir,
       timeout: 15000,
     });
 
-    // Convert PDF → SVG
+    // Convert PDF to SVG
     await execAsync(`pdf2svg ${pdfFile} ${svgFile}`, {
       cwd: tempDir,
       timeout: 5000,
@@ -65,7 +63,7 @@ ${tikzCode}
     // Read and return SVG content
     const svgContent = await fs.readFile(svgFile, 'utf-8');
 
-    // Cleanup extra files (keep .svg for static serving)
+    // Cleanup temporary files (keep only svg if needed)
     const cleanupFiles = [
       texFile,
       pdfFile,
@@ -79,13 +77,12 @@ ${tikzCode}
     res.json({
       success: true,
       svgContent,
-      svgUrl: `http://localhost:${PORT}/svg/${filename}.svg`,
     });
 
   } catch (error) {
     console.error('LaTeX compilation error:', error);
 
-    // Try to read the log file if it exists
+    // Try reading log file for more details
     const logFile = path.join(tempDir, `${filename}.log`);
     let errorDetails = error.message;
     try {
@@ -106,7 +103,7 @@ ${tikzCode}
 
     res.status(500).json({
       success: false,
-      error: 'LaTeX compilation failed. Ensure pdflatex and pdf2svg are installed.',
+      error: 'LaTeX compilation failed.',
       details: errorDetails,
     });
   }
@@ -114,5 +111,6 @@ ${tikzCode}
 
 app.listen(PORT, () => {
   console.log(`✅ LaTeX rendering server running at http://localhost:${PORT}`);
-  console.log('Requires: pdflatex and pdf2svg installed (brew install pdf2svg mactex).');
+  console.log('Safe defaults: no shell escape, per-request temp files.');
+  console.log('Requires: pdflatex and pdf2svg installed.');
 });

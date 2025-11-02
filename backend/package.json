@@ -2,7 +2,7 @@
   "name": "latex-renderer-backend",
   "version": "1.0.0",
   "type": "module",
-  "description": "Local backend for rendering LaTeX graphs",
+  "description": "Local backend for rendering LaTeX svgs",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
