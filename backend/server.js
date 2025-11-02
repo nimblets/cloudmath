@@ -19,51 +19,47 @@ app.use(express.json());
 // Ensure Homebrew-installed binaries are available to Node
 process.env.PATH += ':/usr/local/bin:/opt/homebrew/bin';
 
-app.post('/api/render-tikz', async (req, res) => {
+app.post('/api/render-latex', async (req, res) => {
   const tempDir = path.join(__dirname, 'temp');
-  const filename = `tikz_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const filename = `latex_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const texFile = path.join(tempDir, `${filename}.tex`);
   const pdfFile = path.join(tempDir, `${filename}.pdf`);
   const svgFile = path.join(tempDir, `${filename}.svg`);
 
   try {
-    const { tikzCode } = req.body;
-    if (!tikzCode || typeof tikzCode !== 'string') {
-      return res.status(400).json({ success: false, error: 'Missing or invalid tikzCode.' });
+    let { fragment } = req.body;
+    if (!fragment || typeof fragment !== 'string') {
+      return res.status(400).json({ success: false, error: 'Missing or invalid fragment.' });
     }
 
-    // Create temp directory if needed
     await fs.mkdir(tempDir, { recursive: true });
 
-    // Minimal standalone LaTeX file for safe compilation
+    // Minimal standalone LaTeX file
     const fullLatex = `
 \\documentclass[border=2pt]{standalone}
 \\usepackage{tikz}
 \\usepackage{pgfplots}
-\\usepackage{amsmath}
+\\usepackage{amsmath,amssymb}
 \\pgfplotsset{compat=1.18}
 \\begin{document}
-${tikzCode}
+${fragment}
 \\end{document}
 `;
+
     await fs.writeFile(texFile, fullLatex);
 
-    // Compile with no shell escape for security
+    // Compile safely
     await execAsync(`pdflatex -no-shell-escape -interaction=nonstopmode -halt-on-error -output-directory=${tempDir} ${texFile}`, {
       cwd: tempDir,
       timeout: 15000,
     });
 
-    // Convert PDF to SVG
-    await execAsync(`pdf2svg ${pdfFile} ${svgFile}`, {
-      cwd: tempDir,
-      timeout: 5000,
-    });
+    // Convert PDF → SVG
+    await execAsync(`pdf2svg ${pdfFile} ${svgFile}`, { cwd: tempDir, timeout: 5000 });
 
-    // Read and return SVG content
     const svgContent = await fs.readFile(svgFile, 'utf-8');
 
-    // Cleanup temporary files (keep only svg if needed)
+    // Cleanup temporary files
     const cleanupFiles = [
       texFile,
       pdfFile,
@@ -71,35 +67,29 @@ ${tikzCode}
       path.join(tempDir, `${filename}.log`),
     ];
     for (const f of cleanupFiles) {
-      try { await fs.unlink(f); } catch { /* ignore */ }
+      try { await fs.unlink(f); } catch {}
     }
 
-    res.json({
-      success: true,
-      svgContent,
-    });
+    res.json({ success: true, svgContent });
 
   } catch (error) {
     console.error('LaTeX compilation error:', error);
 
-    // Try reading log file for more details
-    const logFile = path.join(tempDir, `${filename}.log`);
     let errorDetails = error.message;
     try {
+      const logFile = path.join(tempDir, `${filename}.log`);
       const logContent = await fs.readFile(logFile, 'utf-8');
       const match = logContent.match(/! .*/);
       if (match) errorDetails = match[0];
-    } catch { /* ignore */ }
+    } catch {}
 
-    // Cleanup any temp files
+    // Cleanup
     try {
       const files = await fs.readdir(tempDir);
       for (const f of files) {
-        if (f.startsWith(filename)) {
-          await fs.unlink(path.join(tempDir, f));
-        }
+        if (f.startsWith(filename)) await fs.unlink(path.join(tempDir, f));
       }
-    } catch { /* ignore */ }
+    } catch {}
 
     res.status(500).json({
       success: false,
