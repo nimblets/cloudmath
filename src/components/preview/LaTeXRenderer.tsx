@@ -1,3 +1,5 @@
+you keep breaking things
+
 import { useEffect, useRef, useState } from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
@@ -15,6 +17,7 @@ interface BackendFragment {
 
 export const LaTeXRenderer = ({ content }: LaTeXRendererProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [backendFragments, setBackendFragments] = useState<BackendFragment[]>([]);
 
   // Helper: send fragment to backend
   const renderBackendFragment = async (fragment: string): Promise<string> => {
@@ -102,27 +105,27 @@ export const LaTeXRenderer = ({ content }: LaTeXRendererProps) => {
       return `<p class="mb-4 leading-relaxed">${trimmed}</p>`;
     }).join('\n');
 
-    // Render backend fragments
-    fragments.forEach((frag) => {
+    // Render backend fragments with debounce and swap
+    fragments.forEach((frag, i) => {
+      // If already queued, clear previous timer
+      if (frag.timer) clearTimeout(frag.timer);
+
+      // Set a new debounce
+      frag.timer = setTimeout(async () => {
+        const newSvg = await renderBackendFragment(frag.code);
+        frag.svg = newSvg;
+
+        // Swap placeholder in HTML
+        html = html.replace(frag.placeholder, newSvg);
+
+        if (containerRef.current) containerRef.current.innerHTML = html;
+      }, 250);
+
+      // Keep existing SVG visible initially
       if (frag.svg) {
-        // Already rendered, just insert SVG (no green border)
         html = html.replace(frag.placeholder, frag.svg);
       } else {
-        // Show green border while rendering
-        html = html.replace(
-          frag.placeholder,
-          `<div class="p-2 my-4 flex justify-center border-2 border-green-500">Rendering...</div>`
-        );
-
-        // Debounced async render
-        frag.timer = setTimeout(async () => {
-          const newSvg = await renderBackendFragment(frag.code);
-          frag.svg = newSvg;
-
-          // Replace placeholder with actual SVG and remove green border
-          html = html.replace(frag.placeholder, newSvg);
-          if (containerRef.current) containerRef.current.innerHTML = html;
-        }, 250);
+        html = html.replace(frag.placeholder, `<div class="border-2 border-green-500 p-2 my-4 flex justify-center">Rendering...</div>`);
       }
     });
 
