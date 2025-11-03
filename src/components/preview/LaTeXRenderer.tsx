@@ -106,4 +106,22 @@ export const LaTeXRenderer = ({ content }: LaTeXRendererProps) => {
 
     // Render backend fragments asynchronously with debounce
     fragments.forEach((frag) => {
-      if
+      if (frag.timer) clearTimeout(frag.timer);
+
+      frag.timer = setTimeout(async () => {
+        const newSvg = await renderBackendFragment(frag.code);
+        frag.svg = newSvg;
+
+        // Swap the innerHTML of the container div
+        const container = document.getElementById(frag.placeholder);
+        if (container) container.innerHTML = newSvg;
+      }, 250);
+    });
+
+    // Save current fragments state
+    setBackendFragments(fragments);
+
+  }, [content]);
+
+  return <div ref={containerRef} className="prose prose-slate dark:prose-invert max-w-none" style={{ fontFamily: 'serif' }} />;
+};
