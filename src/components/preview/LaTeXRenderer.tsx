@@ -9,7 +9,7 @@ interface LaTeXRendererProps {
 interface BackendFragment {
   placeholder: string;
   code: string;
-  svg?: string; // keep current SVG
+  svg?: string;
   timer?: NodeJS.Timeout;
 }
 
@@ -17,7 +17,7 @@ export const LaTeXRenderer = ({ content }: LaTeXRendererProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [backendFragments, setBackendFragments] = useState<BackendFragment[]>([]);
 
-  // Helper: send fragment to backend
+  // Send fragment to backend
   const renderBackendFragment = async (fragment: string): Promise<string> => {
     try {
       const response = await fetch("http://localhost:3001/api/render-latex", {
@@ -40,7 +40,6 @@ export const LaTeXRenderer = ({ content }: LaTeXRendererProps) => {
     }
   };
 
-  // Main render
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -89,10 +88,10 @@ export const LaTeXRenderer = ({ content }: LaTeXRendererProps) => {
     // Detect backend-needed fragments
     const backendRegex = /\\begin\{(tcolorbox|tikzpicture|table|figure)[\s\S]*?\\end\{\1\}/g;
     const fragments: BackendFragment[] = [];
-    html = html.replace(backendRegex, match => {
+    html = html.replace(backendRegex, (match) => {
       const placeholder = `__BACKEND_${fragments.length}__`;
       fragments.push({ placeholder, code: match, svg: undefined });
-      return placeholder;
+      return `<div id="${placeholder}" class="border-2 border-green-500 p-2 my-4 flex justify-center">Rendering...</div>`;
     });
 
     // Paragraphs
@@ -103,33 +102,8 @@ export const LaTeXRenderer = ({ content }: LaTeXRendererProps) => {
       return `<p class="mb-4 leading-relaxed">${trimmed}</p>`;
     }).join('\n');
 
-    // Render backend fragments with debounce and swap
-    fragments.forEach((frag, i) => {
-      // If already queued, clear previous timer
-      if (frag.timer) clearTimeout(frag.timer);
-
-      // Set a new debounce
-      frag.timer = setTimeout(async () => {
-        const newSvg = await renderBackendFragment(frag.code);
-        frag.svg = newSvg;
-
-        // Swap placeholder in HTML
-        html = html.replace(frag.placeholder, newSvg);
-
-        if (containerRef.current) containerRef.current.innerHTML = html;
-      }, 250);
-
-      // Keep existing SVG visible initially
-      if (frag.svg) {
-        html = html.replace(frag.placeholder, frag.svg);
-      } else {
-        html = html.replace(frag.placeholder, `<div class="border-2 border-green-500 p-2 my-4 flex justify-center">Rendering...</div>`);
-      }
-    });
-
     if (containerRef.current) containerRef.current.innerHTML = html;
 
-  }, [content]);
-
-  return <div ref={containerRef} className="prose prose-slate dark:prose-invert max-w-none" style={{ fontFamily: 'serif' }} />;
-};
+    // Render backend fragments asynchronously with debounce
+    fragments.forEach((frag) => {
+      if
