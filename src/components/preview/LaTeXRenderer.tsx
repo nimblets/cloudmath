@@ -1,135 +1,134 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 
 interface LaTeXRendererProps {
   content: string;
+  backendUrl?: string;
 }
 
-interface BackendFragment {
-  placeholder: string;
-  code: string;
-  svg?: string; // keep current SVG
-  timer?: NodeJS.Timeout;
-}
-
-export const LaTeXRenderer = ({ content }: LaTeXRendererProps) => {
+export const LaTeXRenderer = ({ content, backendUrl = "http://localhost:3001/api/render-latex" }: LaTeXRendererProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [backendFragments, setBackendFragments] = useState<BackendFragment[]>([]);
+  const backendTimers = useRef<NodeJS.Timeout[]>([]);
 
-  // Helper: send fragment to backend
-  const renderBackendFragment = async (fragment: string): Promise<string> => {
-    try {
-      const response = await fetch("http://localhost:3001/api/render-latex", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fragment }),
-      });
-      const data = await response.json();
-      if (data.success && data.svgContent) {
-        return `<div class="my-4 flex justify-center">${data.svgContent}</div>`;
-      } else {
-        return `<div class="text-destructive p-2 border border-destructive rounded my-2">
-                  <strong>Backend Error:</strong> ${data.details || data.error || "Unknown"}
-                </div>`;
-      }
-    } catch (e) {
-      return `<div class="text-destructive p-2 border border-destructive rounded my-2">
-                <strong>Backend Error:</strong> Server not running
-              </div>`;
-    }
-  };
-
-  // Main render
   useEffect(() => {
     if (!containerRef.current) return;
 
-    let html = content;
+    let active = true;
 
-    // Extract document body
-    const docMatch = html.match(/\\begin\{document\}([\s\S]*?)\\end\{document\}/);
-    html = docMatch ? docMatch[1] : html;
-
-    // Sections, title, author, date
-    html = html.replace(/\\title\{([^}]+)\}/g, '<h1 class="text-3xl font-bold mb-4">$1</h1>');
-    html = html.replace(/\\author\{([^}]*)\}/g, '<p class="text-sm text-muted-foreground mb-2">$1</p>');
-    html = html.replace(/\\date\{([^}]*)\}/g, '<p class="text-xs text-muted-foreground mb-6">$1</p>');
-    html = html.replace(/\\maketitle/g, "");
-    html = html.replace(/\\section\{([^}]+)\}/g, '<h2 class="text-2xl font-bold mt-8 mb-4">$1</h2>');
-    html = html.replace(/\\subsection\{([^}]+)\}/g, '<h3 class="text-xl font-semibold mt-6 mb-3">$1</h3>');
-    html = html.replace(/\\subsubsection\{([^}]+)\}/g, '<h4 class="text-lg font-medium mt-4 mb-2">$1</h4>');
-
-    // Inline math: $...$
-    html = html.replace(/\$([^$]+)\$/g, (_, eq) => {
+    // Debounced backend render function
+    const renderBackendFragment = async (fragment: string): Promise<string> => {
       try {
-        return katex.renderToString(eq.trim(), { displayMode: false, throwOnError: false });
+        const response = await fetch(backendUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fragment }),
+        });
+        const data = await response.json();
+
+        if (data.success && data.svgContent) {
+          return `<div class="my-4 flex justify-center p-2 rounded">${data.svgContent}</div>`;
+        } else {
+          return `<div class="my-4 text-red-700 border border-red-500 p-2 rounded">
+                    <strong>Backend Error:</strong> ${data.details || data.error || "Unknown"}
+                  </div>`;
+        }
       } catch {
-        return `<span class="text-destructive">${eq}</span>`;
+        return `<div class="my-4 text-red-700 border border-red-500 p-2 rounded">
+                  <strong>Backend Error:</strong> Server not running
+                </div>`;
       }
-    });
+    };
 
-    // Display math: \[...\]
-    html = html.replace(/\\\[([\s\S]*?)\\\]/g, (_, eq) => {
-      try {
-        return `<div class="my-4 overflow-x-auto">${katex.renderToString(eq.trim(), { displayMode: true, throwOnError: false })}</div>`;
-      } catch {
-        return `<div class="text-destructive my-4">${eq}</div>`;
+    const processContent = async () => {
+      if (!active) return;
+
+      let html = content;
+
+      // Strip documentclass, begin/end document
+      const docMatch = html.match(/\\begin\{document\}([\s\S]*?)\\end\{document\}/);
+      html = docMatch ? docMatch[1] : html;
+
+      // Sections, subsections, title/author/date
+      html = html.replace(/\\title\{([^}]+)\}/g, '<h1 class="text-3xl font-bold mb-4">$1</h1>');
+      html = html.replace(/\\author\{([^}]*)\}/g, '<p class="text-sm text-muted-foreground mb-2">$1</p>');
+      html = html.replace(/\\date\{([^}]*)\}/g, '<p class="text-xs text-muted-foreground mb-6">$1</p>');
+      html = html.replace(/\\maketitle/g, "");
+      html = html.replace(/\\section\{([^}]+)\}/g, '<h2 class="text-2xl font-bold mt-8 mb-4">$1</h2>');
+      html = html.replace(/\\subsection\{([^}]+)\}/g, '<h3 class="text-xl font-semibold mt-6 mb-3">$1</h3>');
+      html = html.replace(/\\subsubsection\{([^}]+)\}/g, '<h4 class="text-lg font-medium mt-4 mb-2">$1</h4>');
+
+      // Extract backend-needed fragments
+      const backendRegex = /\\begin\{(tcolorbox|tikzpicture|table|figure)[\s\S]*?\\end\{\1\}/g;
+      const fragments: { placeholder: string; code: string }[] = [];
+      html = html.replace(backendRegex, match => {
+        const placeholder = `__BACKEND_${fragments.length}__`;
+        fragments.push({ placeholder, code: match });
+        return placeholder;
+      });
+
+      // Inline math: $...$ (outside backend)
+      html = html.replace(/\$([^$]+)\$/g, (_, eq) => {
+        try {
+          return katex.renderToString(eq.trim(), { displayMode: false, throwOnError: false });
+        } catch {
+          return `<span class="text-red-500">${eq}</span>`;
+        }
+      });
+
+      // Display math: \[...\] (outside backend)
+      html = html.replace(/\\\[([\s\S]*?)\\\]/g, (_, eq) => {
+        try {
+          return `<div class="my-4 overflow-x-auto">${katex.renderToString(eq.trim(), { displayMode: true, throwOnError: false })}</div>`;
+        } catch {
+          return `<div class="text-red-500 my-4">${eq}</div>`;
+        }
+      });
+
+      // Align environments (outside backend)
+      html = html.replace(/\\begin\{align\*?\}([\s\S]*?)\\end\{align\*?\}/g, (_, eqs) => {
+        const lines = eqs.split("\\\\").filter(l => l.trim());
+        return '<div class="my-4 overflow-x-auto">' + lines.map(line => {
+          return katex.renderToString(line.replace(/&/g, ""), { displayMode: true, throwOnError: false });
+        }).join('') + '</div>';
+      });
+
+      // Paragraphs (split by double newlines)
+      html = html.split('\n\n').map(para => {
+        const trimmed = para.trim();
+        if (!trimmed || trimmed.includes('__BACKEND_')) return trimmed;
+        if (trimmed.startsWith('<')) return trimmed;
+        return `<p class="mb-4 leading-relaxed">${trimmed}</p>`;
+      }).join('\n');
+
+      // Replace backend placeholders asynchronously
+      for (const { placeholder, code } of fragments) {
+        // Insert placeholder div without green border
+        const currentEl = containerRef.current!.querySelector(`div[data-backend="${placeholder}"]`);
+        if (!currentEl) {
+          html = html.replace(placeholder, `<div data-backend="${placeholder}" class="my-4 p-2 rounded">Rendering...</div>`);
+        }
+
+        const timer = setTimeout(async () => {
+          const svg = await renderBackendFragment(code);
+          if (!active) return;
+          const el = containerRef.current!.querySelector(`div[data-backend="${placeholder}"]`);
+          if (el) el.outerHTML = `<div data-backend="${placeholder}">${svg}</div>`;
+        }, 200);
+        backendTimers.current.push(timer);
       }
-    });
 
-    // Align environment
-    html = html.replace(/\\begin\{align\*?\}([\s\S]*?)\\end\{align\*?\}/g, (_, eqs) => {
-      const lines = eqs.split("\\\\").filter(l => l.trim());
-      return '<div class="my-4 overflow-x-auto">' + lines.map(line => {
-        const cleaned = line.replace(/&/g, '');
-        return katex.renderToString(cleaned, { displayMode: true, throwOnError: false });
-      }).join('') + '</div>';
-    });
+      if (containerRef.current) containerRef.current.innerHTML = html;
+    };
 
-    // Detect backend-needed fragments
-    const backendRegex = /\\begin\{(tcolorbox|tikzpicture|table|figure)[\s\S]*?\\end\{\1\}/g;
-    const fragments: BackendFragment[] = [];
-    html = html.replace(backendRegex, match => {
-      const placeholder = `__BACKEND_${fragments.length}__`;
-      fragments.push({ placeholder, code: match, svg: undefined });
-      return placeholder;
-    });
+    processContent();
 
-    // Paragraphs
-    html = html.split('\n\n').map(para => {
-      const trimmed = para.trim();
-      if (!trimmed || trimmed.includes('__BACKEND_')) return trimmed;
-      if (trimmed.startsWith('<')) return trimmed;
-      return `<p class="mb-4 leading-relaxed">${trimmed}</p>`;
-    }).join('\n');
-
-    // Render backend fragments with debounce and swap
-    fragments.forEach((frag, i) => {
-      // If already queued, clear previous timer
-      if (frag.timer) clearTimeout(frag.timer);
-
-      // Set a new debounce
-      frag.timer = setTimeout(async () => {
-        const newSvg = await renderBackendFragment(frag.code);
-        frag.svg = newSvg;
-
-        // Swap placeholder in HTML
-        html = html.replace(frag.placeholder, newSvg);
-
-        if (containerRef.current) containerRef.current.innerHTML = html;
-      }, 250);
-
-      // Keep existing SVG visible initially
-      if (frag.svg) {
-        html = html.replace(frag.placeholder, frag.svg);
-      } else {
-        html = html.replace(frag.placeholder, `<div class="border-2 border-green-500 p-2 my-4 flex justify-center">Rendering...</div>`);
-      }
-    });
-
-    if (containerRef.current) containerRef.current.innerHTML = html;
-
-  }, [content]);
+    return () => {
+      active = false;
+      backendTimers.current.forEach(t => clearTimeout(t));
+      backendTimers.current = [];
+    };
+  }, [content, backendUrl]);
 
   return <div ref={containerRef} className="prose prose-slate dark:prose-invert max-w-none" style={{ fontFamily: 'serif' }} />;
 };
