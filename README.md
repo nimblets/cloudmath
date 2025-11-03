@@ -76,9 +76,17 @@ This software uses the following packages:
 - shadcn-ui 
 - Tailwind CSS
 
-## License
+## License & Branding
 
-Apache 2.0 + No sale
+This project is licensed under the [Apache License 2.0](./LICENSE).
+
+Please note:
+- The name **“Cloud Math”** and its associated logos, domains, and branding
+  may not be used to promote or distribute modified versions of the software
+  without prior written permission from the original author.
+- Forks or public re-releases should use a different name or branding.
+- You are free to self-host Cloud Math for personal, educational, or business purposes.
+- The official hosted version will be available at a seperate website soon. we are still early in development!
 
 ---
 > GitHub [@nimblets](https://github.com/nimblets) &nbsp;&middot;&nbsp;
