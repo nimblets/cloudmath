@@ -78,7 +78,7 @@ This software uses the following packages:
 
 ## License
 
-MIT
+Apache 2.0 + No sale
 
 ---
 > GitHub [@nimblets](https://github.com/nimblets) &nbsp;&middot;&nbsp;
