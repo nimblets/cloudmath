@@ -7,52 +7,47 @@ interface LaTeXRendererProps {
   backendUrl?: string;
 }
 
-interface BackendFragment {
-  placeholder: string;
-  code: string;
-  svg?: string; // current SVG
-}
-
 export const LaTeXRenderer = ({ content, backendUrl = "http://localhost:3001/api/render-latex" }: LaTeXRendererProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const backendFragments = useRef<BackendFragment[]>([]);
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const backendFragmentsRef = useRef<Record<string, string>>({}); // keeps current SVGs
+
+  const renderBackendFragment = async (fragment: string) => {
+    try {
+      const response = await fetch(backendUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fragment }),
+      });
+      const data = await response.json();
+      if (data.success && data.svgContent) {
+        return `<div class="my-4 flex justify-center p-2 rounded">${data.svgContent}</div>`;
+      } else {
+        return `<div class="my-4 text-red-700 border border-red-500 p-2 rounded">
+                  <strong>Backend Error:</strong> ${data.details || data.error || "Unknown"}
+                </div>`;
+      }
+    } catch {
+      return `<div class="my-4 text-red-700 border border-red-500 p-2 rounded">
+                <strong>Backend Error:</strong> Server not running
+              </div>`;
+    }
+  };
 
   useEffect(() => {
     if (!containerRef.current) return;
     let active = true;
-
-    const renderBackendFragment = async (fragment: string): Promise<string> => {
-      try {
-        const response = await fetch(backendUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ fragment }),
-        });
-        const data = await response.json();
-        if (data.success && data.svgContent) {
-          return `<div class="my-4 flex justify-center p-2 rounded">${data.svgContent}</div>`;
-        } else {
-          return `<div class="my-4 text-red-700 p-2 rounded">
-                    <strong>Backend Error:</strong> ${data.details || data.error || "Unknown"}
-                  </div>`;
-        }
-      } catch {
-        return `<div class="my-4 text-red-700 p-2 rounded">
-                  <strong>Backend Error:</strong> Server not running
-                </div>`;
-      }
-    };
 
     const processContent = async () => {
       if (!active) return;
 
       let html = content;
 
-      // Strip documentclass, begin/end document
+      // Extract document body
       const docMatch = html.match(/\\begin\{document\}([\s\S]*?)\\end\{document\}/);
       html = docMatch ? docMatch[1] : html;
 
-      // Sections, subsections, title/author/date
+      // Sections
       html = html.replace(/\\title\{([^}]+)\}/g, '<h1 class="text-3xl font-bold mb-4">$1</h1>');
       html = html.replace(/\\author\{([^}]*)\}/g, '<p class="text-sm text-muted-foreground mb-2">$1</p>');
       html = html.replace(/\\date\{([^}]*)\}/g, '<p class="text-xs text-muted-foreground mb-6">$1</p>');
@@ -61,16 +56,7 @@ export const LaTeXRenderer = ({ content, backendUrl = "http://localhost:3001/api
       html = html.replace(/\\subsection\{([^}]+)\}/g, '<h3 class="text-xl font-semibold mt-6 mb-3">$1</h3>');
       html = html.replace(/\\subsubsection\{([^}]+)\}/g, '<h4 class="text-lg font-medium mt-4 mb-2">$1</h4>');
 
-      // Extract backend-needed fragments
-      const backendRegex = /\\begin\{(tcolorbox|tikzpicture|table|figure)[\s\S]*?\\end\{\1\}/g;
-      backendFragments.current = [];
-      html = html.replace(backendRegex, match => {
-        const placeholder = `__BACKEND_${backendFragments.current.length}__`;
-        backendFragments.current.push({ placeholder, code: match });
-        return placeholder;
-      });
-
-      // Inline math: $...$
+      // Inline math
       html = html.replace(/\$([^$]+)\$/g, (_, eq) => {
         try {
           return katex.renderToString(eq.trim(), { displayMode: false, throwOnError: false });
@@ -79,7 +65,7 @@ export const LaTeXRenderer = ({ content, backendUrl = "http://localhost:3001/api
         }
       });
 
-      // Display math: \[...\]
+      // Display math
       html = html.replace(/\\\[([\s\S]*?)\\\]/g, (_, eq) => {
         try {
           return `<div class="my-4 overflow-x-auto">${katex.renderToString(eq.trim(), { displayMode: true, throwOnError: false })}</div>`;
@@ -88,12 +74,26 @@ export const LaTeXRenderer = ({ content, backendUrl = "http://localhost:3001/api
         }
       });
 
-      // Align environments
+      // Align
       html = html.replace(/\\begin\{align\*?\}([\s\S]*?)\\end\{align\*?\}/g, (_, eqs) => {
         const lines = eqs.split("\\\\").filter(l => l.trim());
-        return '<div class="my-4 overflow-x-auto">' + lines.map(line =>
-          katex.renderToString(line.replace(/&/g, ""), { displayMode: true, throwOnError: false })
-        ).join('') + '</div>';
+        return '<div class="my-4 overflow-x-auto">' + lines.map(line => {
+          return katex.renderToString(line.replace(/&/g, ""), { displayMode: true, throwOnError: false });
+        }).join('') + '</div>';
+      });
+
+      // Detect backend fragments
+      const backendRegex = /\\begin\{(tcolorbox|tikzpicture|table|figure)[\s\S]*?\\end\{\1\}/g;
+      const fragments: { placeholder: string; code: string }[] = [];
+      html = html.replace(backendRegex, match => {
+        const placeholder = `__BACKEND_${fragments.length}__`;
+        fragments.push({ placeholder, code: match });
+        // Keep old SVG if it exists
+        const currentSVG = backendFragmentsRef.current[placeholder];
+        if (currentSVG) {
+          return currentSVG;
+        }
+        return `<span data-backend="${placeholder}" class="text-green-600">Rendering...</span>`;
       });
 
       // Paragraphs
@@ -104,36 +104,28 @@ export const LaTeXRenderer = ({ content, backendUrl = "http://localhost:3001/api
         return `<p class="mb-4 leading-relaxed">${trimmed}</p>`;
       }).join('\n');
 
-      // Insert initial placeholders
-      backendFragments.current.forEach(frag => {
-        if (!containerRef.current!.querySelector(`div[data-backend="${frag.placeholder}"]`)) {
-          html = html.replace(frag.placeholder, `<div data-backend="${frag.placeholder}" class="my-4 text-green-600 p-2 rounded">Rendering...</div>`);
+      if (containerRef.current) containerRef.current.innerHTML = html;
+
+      // Debounce backend rendering (single timer)
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+      debounceTimer.current = setTimeout(async () => {
+        for (const { placeholder, code } of fragments) {
+          if (!active) return;
+          const svg = await renderBackendFragment(code);
+          if (!active) return;
+          backendFragmentsRef.current[placeholder] = svg; // save SVG
+          const el = containerRef.current!.querySelector(`span[data-backend="${placeholder}"]`);
+          if (el) el.outerHTML = svg;
         }
-      });
-
-      containerRef.current.innerHTML = html;
-
-      // Render backend fragments asynchronously
-      for (const frag of backendFragments.current) {
-        const currentEl = containerRef.current.querySelector(`div[data-backend="${frag.placeholder}"]`);
-        const oldSvg = frag.svg || null;
-
-        const svg = await renderBackendFragment(frag.code);
-        if (!active) return;
-
-        frag.svg = svg; // save new SVG
-
-        const el = containerRef.current.querySelector(`div[data-backend="${frag.placeholder}"]`);
-        if (el) {
-          // Keep old SVG if exists, else show rendering text first time
-          el.outerHTML = `<div data-backend="${frag.placeholder}">${svg}</div>`;
-        }
-      }
+      }, 300);
     };
 
     processContent();
 
-    return () => { active = false; };
+    return () => {
+      active = false;
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
   }, [content, backendUrl]);
 
   return <div ref={containerRef} className="prose prose-slate dark:prose-invert max-w-none" style={{ fontFamily: 'serif' }} />;
