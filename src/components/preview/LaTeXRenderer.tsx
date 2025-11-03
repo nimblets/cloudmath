@@ -10,16 +10,18 @@ interface LaTeXRendererProps {
 interface BackendFragment {
   placeholder: string;
   code: string;
-  svg?: string; // current SVG
+  svg?: string; // store latest SVG
 }
 
 export const LaTeXRenderer = ({ content, backendUrl = "http://localhost:3001/api/render-latex" }: LaTeXRendererProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const backendFragments = useRef<BackendFragment[]>([]);
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const active = useRef(true);
 
   useEffect(() => {
     if (!containerRef.current) return;
-    let active = true;
+    active.current = true;
 
     const renderBackendFragment = async (fragment: string): Promise<string> => {
       try {
@@ -43,9 +45,8 @@ export const LaTeXRenderer = ({ content, backendUrl = "http://localhost:3001/api
       }
     };
 
-    const processContent = async () => {
-      if (!active) return;
-
+    const processContent = () => {
+      if (!active.current) return;
       let html = content;
 
       // Strip documentclass, begin/end document
@@ -70,7 +71,7 @@ export const LaTeXRenderer = ({ content, backendUrl = "http://localhost:3001/api
         return placeholder;
       });
 
-      // Inline math: $...$
+      // Inline math
       html = html.replace(/\$([^$]+)\$/g, (_, eq) => {
         try {
           return katex.renderToString(eq.trim(), { displayMode: false, throwOnError: false });
@@ -79,7 +80,7 @@ export const LaTeXRenderer = ({ content, backendUrl = "http://localhost:3001/api
         }
       });
 
-      // Display math: \[...\]
+      // Display math
       html = html.replace(/\\\[([\s\S]*?)\\\]/g, (_, eq) => {
         try {
           return `<div class="my-4 overflow-x-auto">${katex.renderToString(eq.trim(), { displayMode: true, throwOnError: false })}</div>`;
@@ -88,7 +89,7 @@ export const LaTeXRenderer = ({ content, backendUrl = "http://localhost:3001/api
         }
       });
 
-      // Align environments
+      // Align
       html = html.replace(/\\begin\{align\*?\}([\s\S]*?)\\end\{align\*?\}/g, (_, eqs) => {
         const lines = eqs.split("\\\\").filter(l => l.trim());
         return '<div class="my-4 overflow-x-auto">' + lines.map(line =>
@@ -104,36 +105,35 @@ export const LaTeXRenderer = ({ content, backendUrl = "http://localhost:3001/api
         return `<p class="mb-4 leading-relaxed">${trimmed}</p>`;
       }).join('\n');
 
-      // Insert initial placeholders
+      // Insert placeholders safely (first time: green "Rendering...", else existing SVG)
       backendFragments.current.forEach(frag => {
-        if (!containerRef.current!.querySelector(`div[data-backend="${frag.placeholder}"]`)) {
-          html = html.replace(frag.placeholder, `<div data-backend="${frag.placeholder}" class="my-4 text-green-600 p-2 rounded">Rendering...</div>`);
-        }
+        html = html.replaceAll(
+          frag.placeholder,
+          frag.svg || `<div data-backend="${frag.placeholder}" class="my-4 text-green-600 p-2 rounded">Rendering...</div>`
+        );
       });
 
-      containerRef.current.innerHTML = html;
+      if (containerRef.current) containerRef.current.innerHTML = html;
 
-      // Render backend fragments asynchronously
-      for (const frag of backendFragments.current) {
-        const currentEl = containerRef.current.querySelector(`div[data-backend="${frag.placeholder}"]`);
-        const oldSvg = frag.svg || null;
-
-        const svg = await renderBackendFragment(frag.code);
-        if (!active) return;
-
-        frag.svg = svg; // save new SVG
-
-        const el = containerRef.current.querySelector(`div[data-backend="${frag.placeholder}"]`);
-        if (el) {
-          // Keep old SVG if exists, else show rendering text first time
-          el.outerHTML = `<div data-backend="${frag.placeholder}">${svg}</div>`;
+      // Debounce backend rendering
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+      debounceTimer.current = setTimeout(async () => {
+        for (const frag of backendFragments.current) {
+          const svg = await renderBackendFragment(frag.code);
+          if (!active.current) return;
+          frag.svg = svg;
+          const el = containerRef.current!.querySelector(`div[data-backend="${frag.placeholder}"]`);
+          if (el) el.outerHTML = `<div data-backend="${frag.placeholder}">${svg}</div>`;
         }
-      }
+      }, 300);
     };
 
     processContent();
 
-    return () => { active = false; };
+    return () => {
+      active.current = false;
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
   }, [content, backendUrl]);
 
   return <div ref={containerRef} className="prose prose-slate dark:prose-invert max-w-none" style={{ fontFamily: 'serif' }} />;
