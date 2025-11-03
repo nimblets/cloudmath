@@ -9,13 +9,12 @@ interface LaTeXRendererProps {
 interface BackendFragment {
   placeholder: string;
   code: string;
-  svg?: string;          // current SVG
+  svg?: string; // keep current SVG
   timer?: NodeJS.Timeout;
 }
 
 export const LaTeXRenderer = ({ content }: LaTeXRendererProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [backendFragments, setBackendFragments] = useState<BackendFragment[]>([]);
 
   // Helper: send fragment to backend
   const renderBackendFragment = async (fragment: string): Promise<string> => {
@@ -33,14 +32,15 @@ export const LaTeXRenderer = ({ content }: LaTeXRendererProps) => {
                   <strong>Backend Error:</strong> ${data.details || data.error || "Unknown"}
                 </div>`;
       }
-    } catch {
+    } catch (e) {
       return `<div class="text-destructive p-2 border border-destructive rounded my-2">
                 <strong>Backend Error:</strong> Server not running
               </div>`;
     }
   };
 
-  const processContent = async () => {
+  // Main render
+  useEffect(() => {
     if (!containerRef.current) return;
 
     let html = content;
@@ -58,16 +58,7 @@ export const LaTeXRenderer = ({ content }: LaTeXRendererProps) => {
     html = html.replace(/\\subsection\{([^}]+)\}/g, '<h3 class="text-xl font-semibold mt-6 mb-3">$1</h3>');
     html = html.replace(/\\subsubsection\{([^}]+)\}/g, '<h4 class="text-lg font-medium mt-4 mb-2">$1</h4>');
 
-    // Detect backend-needed fragments first: tcolorbox, tikzpicture, table, figure
-    const backendRegex = /\\begin\{(tcolorbox|tikzpicture|table|figure)[\s\S]*?\\end\{\1\}/g;
-    let fragments: BackendFragment[] = [];
-    html = html.replace(backendRegex, match => {
-      const placeholder = `__BACKEND_${fragments.length}__`;
-      fragments.push({ placeholder, code: match, svg: undefined });
-      return placeholder;
-    });
-
-    // Inline math outside backend
+    // Inline math: $...$
     html = html.replace(/\$([^$]+)\$/g, (_, eq) => {
       try {
         return katex.renderToString(eq.trim(), { displayMode: false, throwOnError: false });
@@ -76,7 +67,7 @@ export const LaTeXRenderer = ({ content }: LaTeXRendererProps) => {
       }
     });
 
-    // Display math outside backend
+    // Display math: \[...\]
     html = html.replace(/\\\[([\s\S]*?)\\\]/g, (_, eq) => {
       try {
         return `<div class="my-4 overflow-x-auto">${katex.renderToString(eq.trim(), { displayMode: true, throwOnError: false })}</div>`;
@@ -85,13 +76,22 @@ export const LaTeXRenderer = ({ content }: LaTeXRendererProps) => {
       }
     });
 
-    // Align environment outside backend
+    // Align environment
     html = html.replace(/\\begin\{align\*?\}([\s\S]*?)\\end\{align\*?\}/g, (_, eqs) => {
       const lines = eqs.split("\\\\").filter(l => l.trim());
       return '<div class="my-4 overflow-x-auto">' + lines.map(line => {
         const cleaned = line.replace(/&/g, '');
         return katex.renderToString(cleaned, { displayMode: true, throwOnError: false });
       }).join('') + '</div>';
+    });
+
+    // Detect backend-needed fragments
+    const backendRegex = /\\begin\{(tcolorbox|tikzpicture|table|figure)[\s\S]*?\\end\{\1\}/g;
+    const fragments: BackendFragment[] = [];
+    html = html.replace(backendRegex, match => {
+      const placeholder = `__BACKEND_${fragments.length}__`;
+      fragments.push({ placeholder, code: match, svg: undefined });
+      return placeholder;
     });
 
     // Paragraphs
@@ -103,56 +103,32 @@ export const LaTeXRenderer = ({ content }: LaTeXRendererProps) => {
     }).join('\n');
 
     // Render backend fragments
-    fragments.forEach((frag, i) => {
-      // Keep existing SVG until new is ready
-      if (!frag.svg) {
-        html = html.replace(frag.placeholder, `<div class="border-2 border-green-500 p-2 my-4 flex justify-center">Rendering...</div>`);
-      } else {
+    fragments.forEach((frag) => {
+      if (frag.svg) {
+        // Already rendered, just insert SVG (no green border)
         html = html.replace(frag.placeholder, frag.svg);
+      } else {
+        // Show green border while rendering
+        html = html.replace(
+          frag.placeholder,
+          `<div class="p-2 my-4 flex justify-center border-2 border-green-500">Rendering...</div>`
+        );
+
+        // Debounced async render
+        frag.timer = setTimeout(async () => {
+          const newSvg = await renderBackendFragment(frag.code);
+          frag.svg = newSvg;
+
+          // Replace placeholder with actual SVG and remove green border
+          html = html.replace(frag.placeholder, newSvg);
+          if (containerRef.current) containerRef.current.innerHTML = html;
+        }, 250);
       }
-
-      // Debounce backend render
-      if (frag.timer) clearTimeout(frag.timer);
-      frag.timer = setTimeout(async () => {
-        const newSvg = await renderBackendFragment(frag.code);
-        frag.svg = newSvg;
-
-        // Swap in the new SVG
-        if (containerRef.current) {
-          containerRef.current.innerHTML = containerRef.current.innerHTML.replace(frag.placeholder, newSvg);
-        }
-      }, 250);
     });
 
-    containerRef.current.innerHTML = html;
-    setBackendFragments(fragments);
-  };
+    if (containerRef.current) containerRef.current.innerHTML = html;
 
-  // Run processContent on mount & content change
-  useEffect(() => {
-    processContent();
   }, [content]);
 
-  // Force backend render on blur
-  const handleBlur = () => {
-    backendFragments.forEach(frag => {
-      if (frag.timer) clearTimeout(frag.timer);
-      frag.timer = setTimeout(async () => {
-        const newSvg = await renderBackendFragment(frag.code);
-        frag.svg = newSvg;
-        if (containerRef.current) {
-          containerRef.current.innerHTML = containerRef.current.innerHTML.replace(frag.placeholder, newSvg);
-        }
-      }, 50);
-    });
-  };
-
-  return (
-    <div
-      ref={containerRef}
-      className="prose prose-slate dark:prose-invert max-w-none"
-      style={{ fontFamily: 'serif' }}
-      onBlur={handleBlur}
-    />
-  );
+  return <div ref={containerRef} className="prose prose-slate dark:prose-invert max-w-none" style={{ fontFamily: 'serif' }} />;
 };
