@@ -10,7 +10,7 @@ interface LaTeXRendererProps {
 interface BackendFragment {
   placeholder: string;
   code: string;
-  svg?: string; // store latest SVG
+  svg?: string; // saved SVG
 }
 
 export const LaTeXRenderer = ({ content, backendUrl = "http://localhost:3001/api/render-latex" }: LaTeXRendererProps) => {
@@ -25,12 +25,12 @@ export const LaTeXRenderer = ({ content, backendUrl = "http://localhost:3001/api
 
     const renderBackendFragment = async (fragment: string): Promise<string> => {
       try {
-        const response = await fetch(backendUrl, {
+        const res = await fetch(backendUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ fragment }),
         });
-        const data = await response.json();
+        const data = await res.json();
         if (data.success && data.svgContent) {
           return `<div class="my-4 flex justify-center p-2 rounded">${data.svgContent}</div>`;
         } else {
@@ -45,11 +45,11 @@ export const LaTeXRenderer = ({ content, backendUrl = "http://localhost:3001/api
       }
     };
 
-    const processContent = () => {
+    const processContent = async () => {
       if (!active.current) return;
       let html = content;
 
-      // Strip documentclass, begin/end document
+      // Extract document body
       const docMatch = html.match(/\\begin\{document\}([\s\S]*?)\\end\{document\}/);
       html = docMatch ? docMatch[1] : html;
 
@@ -105,17 +105,22 @@ export const LaTeXRenderer = ({ content, backendUrl = "http://localhost:3001/api
         return `<p class="mb-4 leading-relaxed">${trimmed}</p>`;
       }).join('\n');
 
-      // Insert placeholders safely (first time: green "Rendering...", else existing SVG)
+      // Insert placeholders / keep existing SVGs
       backendFragments.current.forEach(frag => {
-        html = html.replaceAll(
-          frag.placeholder,
-          frag.svg || `<div data-backend="${frag.placeholder}" class="my-4 text-green-600 p-2 rounded">Rendering...</div>`
-        );
+        const existing = containerRef.current!.querySelector(`div[data-backend="${frag.placeholder}"]`);
+        if (!existing) {
+          html = html.replaceAll(
+            frag.placeholder,
+            `<div data-backend="${frag.placeholder}" class="my-4 text-green-600 p-2 rounded">Rendering...</div>`
+          );
+        } else {
+          html = html.replaceAll(frag.placeholder, frag.svg || existing.outerHTML);
+        }
       });
 
       if (containerRef.current) containerRef.current.innerHTML = html;
 
-      // Debounce backend rendering
+      // Debounced backend render
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
       debounceTimer.current = setTimeout(async () => {
         for (const frag of backendFragments.current) {
