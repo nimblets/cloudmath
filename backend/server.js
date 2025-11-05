@@ -69,6 +69,7 @@ ${fragment}
     const cleanupFiles = [
       texFile,
       pdfFile,
+      svgFile,
       path.join(tempDir, `${filename}.aux`),
       path.join(tempDir, `${filename}.log`),
     ];
