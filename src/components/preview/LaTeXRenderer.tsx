@@ -97,6 +97,34 @@ export const LaTeXRenderer = ({ content, backendUrl = "http://localhost:3001/api
         ).join('') + '</div>';
       });
 
+      // Lists (itemize and enumerate)
+      // === LISTS (recursive) ===
+      function parseLists(text: string, depth = 0): string {
+        const pattern = /\\begin\{(itemize|enumerate)\}([\s\S]*?)\\end\{\1\}/g;
+
+        return text.replace(pattern, (_, type, content) => {
+          // Recursively parse nested lists
+          const inner = parseLists(content, depth + 1);
+
+          const items = inner
+            .split(/\\item\s*/g)
+            .map(i => i.trim())
+            .filter(i => i.length > 0)
+            .map(i => `<li>${i}</li>`)
+            .join("");
+
+          // Indentation based on depth (Tailwind: ml-8, ml-12, ml-16, ...)
+          const tailwindIndent = 8 + depth * 4; // 8, 12, 16, etc.
+          const marginClass = `ml-[${tailwindIndent}px]`;
+
+          if (type === "itemize") return `<ul class="list-disc ${marginClass} my-4">${items}</ul>`;
+          else return `<ol class="list-decimal ${marginClass} my-4">${items}</ol>`;
+        });
+      }
+
+      // Apply it
+      html = parseLists(html);
+
       // Paragraphs
       html = html.split('\n\n').map(para => {
         const trimmed = para.trim();
@@ -109,12 +137,11 @@ export const LaTeXRenderer = ({ content, backendUrl = "http://localhost:3001/api
       backendFragments.current.forEach(frag => {
         const existing = containerRef.current!.querySelector(`div[data-backend="${frag.placeholder}"]`);
         if (!existing) {
-          html = html.replaceAll(
-            frag.placeholder,
+          html = html.split(frag.placeholder).join(
             `<div data-backend="${frag.placeholder}" class="my-4 text-green-600 p-2 rounded">Rendering...</div>`
           );
         } else {
-          html = html.replaceAll(frag.placeholder, frag.svg || existing.outerHTML);
+          html = html.split(frag.placeholder).join(frag.svg || existing.outerHTML);
         }
       });
 

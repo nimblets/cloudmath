@@ -26,7 +26,7 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(
     const speedCycleActive = useRef(false);
     const currentFieldIndex = useRef(0);
     const fieldPositions = useRef<
-      { start: monacoType.Position; end: monacoType.Position }[]
+      { start: monacoType.IPosition; end: monacoType.IPosition }[]
     >([]);
 
     // Bubble preview
@@ -58,8 +58,8 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(
 
       setCurrentLineLatex(lineContent);
 
-     const coords = editor.getScrolledVisiblePosition({ lineNumber: pos.lineNumber, column: 1 });
-     if (coords) setCursorCoords({ top: coords.top - 20, left: 5 });
+  const coords = editor.getScrolledVisiblePosition({ lineNumber: pos.lineNumber, column: 1 });
+  if (coords) setCursorCoords({ top: coords.top - 20, left: 5 });
 
       return true;
     };
@@ -76,8 +76,8 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(
       const lineContent = editor.getModel()?.getLineContent(field.start.lineNumber) || "";
       setCurrentLineLatex(lineContent);
 
-      const coords = editor.getScrolledVisiblePosition({ lineNumber: pos.lineNumber, column: 1 });
-      if (coords) setCursorCoords({ top: coords.top - 20, left: 5 });
+  const coords = editor.getScrolledVisiblePosition({ lineNumber: field.start.lineNumber, column: 1 });
+  if (coords) setCursorCoords({ top: coords.top - 20, left: 5 });
 
     };
 
@@ -188,6 +188,13 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(
           onMount={async (editor) => {
             editorRef.current = editor;
             await registerSymbolHotkeys(editor);
+            // Dispatch initial cursor position for status bar
+            const pos = editor.getPosition();
+            if (pos) {
+              window.dispatchEvent(
+                new CustomEvent("monaco:cursor", { detail: { lineNumber: pos.lineNumber, column: pos.column } })
+              );
+            }
 
             // --- Key handling ---
             editor.onKeyDown((e) => {
@@ -205,11 +212,23 @@ export const CodeEditor = forwardRef<CodeEditorRef, CodeEditorProps>(
                 cycleToNextField();
               }
             });
+            // Notify on cursor move for status bar
+            editor.onDidChangeCursorPosition((e) => {
+              const p = e.position;
+              window.dispatchEvent(new CustomEvent("monaco:cursor", { detail: { lineNumber: p.lineNumber, column: p.column } }));
+            });
 
-            // Alt release deactivates
-            editor.onKeyUp(() => {
+            // Notify on content change (for simple status info like length)
+            editor.onDidChangeModelContent(() => {
+              const model = editor.getModel();
+              const len = model ? model.getValueLength() : 0;
+              window.dispatchEvent(new CustomEvent("monaco:content", { detail: { length: len } }));
+            });
+            // Alt release deactivates - use event arg rather than window.event
+            editor.onKeyUp((e) => {
               if (!editorRef.current) return;
-              if (!window.event?.altKey) {
+              // e.altKey is provided by Monaco's keyboard event
+              if (!e.altKey) {
                 speedCycleActive.current = false;
                 currentFieldIndex.current = 0;
                 fieldPositions.current = [];

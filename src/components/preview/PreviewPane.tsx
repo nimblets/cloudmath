@@ -1,8 +1,9 @@
+import React, { useEffect } from 'react';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { LaTeXRenderer } from "./LaTeXRenderer";
-import { Button } from "@/components/ui/button";
-import { FileText } from "lucide-react";
 import { toast } from "sonner";
+import { BufferHeader } from "@/components/layout/BufferHeader";
+import { createPreviewHeader } from "./PreviewPaneHeader";
 
 interface PreviewPaneProps {
   content: string;
@@ -67,31 +68,27 @@ export const PreviewPane = ({ content, direction = "vertical", onToggleDirection
 
   return (
     <div className="flex-1 flex flex-col bg-card">
-      <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-secondary">
-        <span className="text-sm font-medium">Preview</span>
-        <div className="flex gap-1">
-          {onToggleDirection && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 shrink-0"
-              onClick={onToggleDirection}
-              title="Toggle Preview Direction"
-            >
-              <span className="text-xs">{direction === "horizontal" ? "⇅" : "⇄"}</span>
-            </Button>
-          )}
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={handleExportPDF}
-            className="h-8"
-          >
-            <FileText className="h-4 w-4 mr-2" />
-            Export PDF
-          </Button>
-        </div>
-      </div>
+      <BufferHeader
+        {...createPreviewHeader({
+          content,
+          direction,
+          onExportPDF: handleExportPDF,
+          bufferId: document.querySelector('[data-buffer-id]')?.getAttribute('data-buffer-id')
+        })}
+        onHeaderAction={(action) => {
+          switch (action.type) {
+            case 'toggle-direction':
+              if (onToggleDirection) {
+                onToggleDirection();
+              } else {
+                const bufferEl = document.querySelector('[data-buffer-id]') as HTMLElement | null;
+                const bufferId = bufferEl?.getAttribute('data-buffer-id') || undefined;
+                window.dispatchEvent(new CustomEvent('preview:requestToggleDirection', { detail: { bufferId } }));
+              }
+              break;
+          }
+        }}
+      />
       
       <ScrollArea className="flex-1">
         <div className="p-8 max-w-4xl mx-auto preview-content">

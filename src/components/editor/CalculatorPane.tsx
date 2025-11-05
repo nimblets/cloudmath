@@ -4,17 +4,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { X } from "lucide-react";
 import { toast } from "sonner";
+import { BufferHeader } from "@/components/layout/BufferHeader";
+import { createCalculatorHeader } from "./CalculatorPaneHeader";
 
 interface CalculatorPaneProps {
   onInsertResult: (result: string) => void;
   onClose: () => void;
   direction?: "horizontal" | "vertical";
   onToggleDirection?: () => void;
+  hideHeader?: boolean;
 }
 
-export const CalculatorPane = ({ onInsertResult, onClose, direction = "horizontal", onToggleDirection }: CalculatorPaneProps) => {
+export const CalculatorPane = ({ onInsertResult, onClose, direction = "horizontal", onToggleDirection, hideHeader, ...rest }: CalculatorPaneProps & any) => {
   const [expression, setExpression] = useState("");
   const [result, setResult] = useState("");
   const [history, setHistory] = useState<Array<{ expr: string; result: string }>>([]);
@@ -92,25 +94,37 @@ export const CalculatorPane = ({ onInsertResult, onClose, direction = "horizonta
 
   return (
     <Card className="h-full flex flex-col bg-card">
-      <div className="flex items-center justify-between p-3 border-b border-border">
-        <h3 className="text-sm font-semibold">Scientific Calculator</h3>
-        <div className="flex gap-1">
-          {onToggleDirection && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={onToggleDirection}
-              title="Toggle Calculator Direction"
-            >
-              <span className="text-xs">{direction === "horizontal" ? "⇅" : "⇄"}</span>
-            </Button>
-          )}
-          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+      {!hideHeader && (
+        <BufferHeader
+          {...createCalculatorHeader({
+            direction,
+            bufferId: rest?.['data-buffer-id'],
+            isPopup: hideHeader,
+          })}
+          onHeaderAction={(action) => {
+            switch (action.type) {
+              case 'toggle-direction':
+                if (onToggleDirection) {
+                  onToggleDirection();
+                } else {
+                  const bufferId = rest?.['data-buffer-id'];
+                  window.dispatchEvent(new CustomEvent('calculator:requestToggleDirection', { detail: { bufferId } }));
+                }
+                break;
+              case 'pop-out':
+                const bufferId = rest?.['data-buffer-id'];
+                window.dispatchEvent(new CustomEvent('calculator:requestPopOut', { detail: { bufferId } }));
+                break;
+              case 'pop-in':
+                window.dispatchEvent(new CustomEvent('calculator:requestPopIn'));
+                break;
+              case 'close':
+                onClose();
+                break;
+            }
+          }}
+        />
+      )}
 
       <ScrollArea className="flex-1 p-3">
         <div className="space-y-3">
