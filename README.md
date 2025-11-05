@@ -90,4 +90,5 @@ Please note:
 
 ---
 > GitHub [@nimblets](https://github.com/nimblets) &nbsp;&middot;&nbsp;
+> Email us! support@cloudmath.mmmserv.download
 
