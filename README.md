@@ -36,8 +36,8 @@
 
 ## How To Use
 
-for a more comprehensive guide, please see [the documentation](https://cloudmath.mmmserv.download/docs)
-to download directly, visit the [releases](https://github.com/nimblets/cloudmath/releases/tag/test-release)
+- for a more comprehensive guide, please see [the documentation](https://cloudmath.mmmserv.download/docs)
+- to download directly, visit the [releases](https://github.com/nimblets/cloudmath/releases/tag/test-release)
 ---
 To clone and run this application, you'll need [Git](https://git-scm.com) and [Node.js](https://nodejs.org/en/download/) (which comes with [npm](http://npmjs.com)) installed on your computer. From your command line:
 
