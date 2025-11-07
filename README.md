@@ -81,7 +81,7 @@ This software uses the following packages:
 
 ## License & Branding
 
-This project is licensed under the [Apache License 2.0](./LICENSE).
+This project is licensed under the [MPL 2.0](./LICENSE).
 
 Please note:
 - The name **“Cloud Math”** and its associated logos, domains, and branding
